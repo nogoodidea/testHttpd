@@ -1,7 +1,7 @@
 CC := gcc
 CC_FLAGS := -Wall -pthread -fsanitize=address -g
 LD_FLAGS := 
-FILES := main.c tree.c
+FILES := tree.c parser.c logging.c main.c
 
 
 all:

@@ -41,7 +41,7 @@
 #include <arpa/inet.h>
 
 // errors
-#include <errno.h>
+#include "logging.h"
 
 //poll
 #include <poll.h>
@@ -49,10 +49,8 @@
 // tree
 #include "tree.h"
 
-
-// DEFINES
-
-#define BUFFER_SIZE 2048
+// header parser
+#include "parser.h"
 
 
 // global struct 
@@ -68,44 +66,6 @@ void initGlobal(){
   GLOBAL.exit = true;
 }
 
-// ERROR HANDLER
-void error(char *err){
-  fputs(err,stderr);
-  exit(1);
-}
-
-// errorno handler
-void socketError(){
-  switch(errno){
-    case EAGAIN:
-      error("ERROR: socket is nonblocking and operation will block\n");
-      break;
-    case EBADF:
-      error("ERROR: socket is not a vaid fd\n");
-      break;
-    case ECONNREFUSED:
-      error("ERROR: socket connection was refused\n");
-      break;
-    case EFAULT:
-      error("ERROR: buffer pointer outside of process's address space\n");
-      break;
-    case EINTR:
-      error("ERROR: socket recv call was interrupted by delivery\n");
-      break;
-    case EINVAL:
-      error("ERROR: invilid argument passed\n");
-      break;
-    case ENOMEM:
-      error("ERROR: mem alloc failed for recvmsg");
-      break;
-    case ENOTCONN:
-      error("ERROR: socket not connnected\n");
-      break;
-    case ENOTSOCK:
-      error("ERROR: socket not realy a socket\n");
-      break;
-  }
-}
 
 //does the socket reading
 ssize_t readSocket(int sock,char buf[],ssize_t bufLen){
@@ -118,16 +78,15 @@ void handleConnection(int sock){
   // loops over request copys line from main buffer to line buf 
   char buf[BUFFER_SIZE];
   ssize_t bufLen = 1; // can't be started at zero
+  struct t_treeNode *node = NULL;
   while(bufLen != 0){
     bufLen = readSocket(sock,buf,sizeof(buf));
     if(bufLen == -1){//error handler
-      socketError();    
+      socketError(); 
     }
-    for(ssize_t i = 0;i<bufLen;i+=1){
-      printf("%c",buf[i]);
-    }
+    // handles a socket
+    parseHeaders(buf,bufLen,node);
   }
-
 }
 
 // socket listener start
@@ -137,12 +96,12 @@ int initListenSocket(int port){
   // socket
   int sock = socket(PF_INET,SOCK_STREAM,0);
   if(sock == -1){
-    error("ERROR: socket creation failed\n");
+    error("socket creation failed");
   }
 
   int enable =1;
   if(setsockopt(sock,SOL_SOCKET,SO_REUSEADDR,&enable,sizeof(int)) < 0){
-	  error("ERROR: socket option reuse addr failed");
+	  error("socket option reuse addr failed");
   }
 
   bzero(&sockAddr,sizeof(sockAddr)); 
@@ -153,11 +112,11 @@ int initListenSocket(int port){
 
   //bind
   if(bind(sock,(struct sockaddr*)&sockAddr,sizeof(sockAddr))<0){
-	  error("ERROR: socket binding failed\n");
+	  error("socket binding failed");
   }
   
   if(listen(sock,10) < 0){
-    error("ERROR: socket set queue amount failed\n");
+    error("socket set queue amount failed");
   }
   
   return (sock);
@@ -172,7 +131,7 @@ void listenSocketLoop(int sockListen){
   while(1){
     newSock = accept(sockListen,(struct sockaddr*) &clientAddr,&clientAddrLen);
     if(newSock ==-1){
-      error("ERROR: socket accept failed\n");
+      error("socket accept failed");
     }
 
     //focking block
@@ -180,6 +139,7 @@ void listenSocketLoop(int sockListen){
 
     if(pid == 0){
       //fork
+      debug("Forking");
       handleConnection(newSock);
       close(newSock);
       exit(0);
@@ -202,7 +162,7 @@ int main(int argc,char **argv){
   }
 
   int listenSocket = initListenSocket(port); 
-  puts("listenSocket is up");
+  debug("listenSocket is up");
   listenSocketLoop(listenSocket);
 
   //exit
