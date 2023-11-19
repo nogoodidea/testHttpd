@@ -1,5 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
+#include "logging.h"
+
 #include <stdio.h>
 
 #define MAX_CHILDREN 2
@@ -10,9 +12,11 @@ struct t_treeNode{
   struct t_treeNode *child[MAX_CHILDREN];
 };
 
+
 //sorting function
-int sorting(struct t_treeNode node,const char *key){
-  int out = strcmp(node.key,key);
+int sorting(struct t_treeNode *node,const char *key){
+  fprintf(stderr,"Node: %p,Key: %p",node->key,key);
+  int out = strcmp(node->key,key);
   if(out == 0){
     return MAX_CHILDREN;
   }
@@ -22,10 +26,11 @@ int sorting(struct t_treeNode node,const char *key){
   return 1;
 }
 
+
 const char *searchTree(struct t_treeNode *node,const char *key){
   int sortReturn;
   while (node != NULL){
-    sortReturn = sorting(*node,key);
+    sortReturn = sorting(node,key);
     if(sortReturn == MAX_CHILDREN){
       return node->value;
     }
@@ -37,8 +42,9 @@ const char *searchTree(struct t_treeNode *node,const char *key){
   return NULL;
 }
 
+
 // make a node
-void *makeNode(char *key,char *value){
+struct t_treeNode *makeNode(char *key,char *value){
    struct t_treeNode *node = malloc(sizeof(struct t_treeNode)*MAX_CHILDREN);
    node->key = key;
    node->value = value;
@@ -53,8 +59,9 @@ void *makeNode(char *key,char *value){
 void addNode(struct t_treeNode *node,char *key,char *value){
   int sortReturn;
   while (node != NULL){
-    sortReturn = sorting(*node,key);
-    node = (node->child[sortReturn]); 
+    fprintf(stderr,"Node: %p\n",node);
+    sortReturn = sorting(node,key);
+    node = node->child[sortReturn]; 
   }
   node = makeNode(key,value);
 }
@@ -69,8 +76,12 @@ void freeNodes(struct t_treeNode *node){
 
 // prints out the tree, for error checking
 void printNodes(struct t_treeNode node){
-  fprintf(stderr,"key: %s value: %s \n",node.key,node.value);
+  debug("NODE");
+  debug(node.key);
+  debug(node.value);
   for(size_t i=0;i<MAX_CHILDREN;i+=1){
-    printNodes(*(node.child[i]));
+    if(node.child[i] != NULL){
+      printNodes(*(node.child[i]));
+    };
   }
 }

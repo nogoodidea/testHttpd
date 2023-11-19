@@ -78,15 +78,19 @@ void handleConnection(int sock){
   // loops over request copys line from main buffer to line buf 
   char buf[BUFFER_SIZE];
   ssize_t bufLen = 1; // can't be started at zero
-  struct t_treeNode *node = NULL;
+  struct t_treeNode node;
   while(bufLen != 0){
     bufLen = readSocket(sock,buf,sizeof(buf));
     if(bufLen == -1){//error handler
       socketError(); 
     }
     // handles a socket
-    parseHeaders(buf,bufLen,node);
+    int headerStatus = parseHeaders(buf,bufLen,&node);
+    if(headerStatus != 0){
+      printNodes(node);
+    }
   }
+  // react to the headers
 }
 
 // socket listener start

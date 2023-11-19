@@ -63,38 +63,45 @@ int parseHeaders(char buff[BUFFER_SIZE],ssize_t buffSize,struct t_treeNode *head
     status &= ~CARRYOVER;
    }
 
-   
 
    for(ssize_t i = 0;i<buffSize;i+=1){
-    
-    if((status & AFTER_COLON)!= AFTER_COLON && buff[i] == ':'){
-      status |= AFTER_COLON;   
+     
+    if(buff[i] == ':'){
+      status |= AFTER_COLON;
+      debugInt(keyLen);
+      debugInt(valueLen);
     }
     if(buff[i] == '\r'){
       status |= CARRIAGE_RETURN; 
       continue; // don't want to add \n to bufferTemp
     }
-    if(((status&CARRIAGE_RETURN)==CARRIAGE_RETURN)&&(buff[i] == '\n')){ // NEW BLOCK
+    if( ((status&CARRIAGE_RETURN)==CARRIAGE_RETURN) && (buff[i] == '\n' )){ // NEW BLOCK
+      //remove some bit flags
       status &= ~(AFTER_COLON|CARRIAGE_RETURN|NEWLINE);
-      debug("PARSER");
-      // add null left
-      
-      key = (char*)malloc(sizeof(char)*(keyLen+1));
-      value = (char*)malloc(sizeof(char)*(valueLen+1));
-      
-      memcpy(key,&(carryOver[0]),keyLen);
-      memcpy(value,&(carryOver[keyLen]),valueLen);
+     
+      if(keyLen > 0){
+        key = (char*)malloc(sizeof(char)*(keyLen+1));
+        memcpy(key,&(carryOver[0]),keyLen);
+        key[keyLen] = '\0';
+      }
 
-      key[keyLen] = '\0';
-      value[valueLen] = '\0';
+      if(valueLen > 0){
+        value = (char*)malloc(sizeof(char)*(valueLen+1));
+        memcpy(value,&(carryOver[keyLen+2]),valueLen);
+        value[valueLen] = '\0';
+      }
 
       if(0<total){
-        addNode(head,key,value);
-        debug(key);
-        debug(value);
+        if((status&FIRSTLINE)==FIRSTLINE){
+          status &= ~(FIRSTLINE);
+          addNode(head,"COMMAND",key);
+        }else{
+          addNode(head,key,value);
+        }
       }else{
         // got 2 newlines after each other
-        return i-total;
+        debug("RETURNING");
+        return (i-total)-1;
       }
       total = 0;
       valueLen = 0;
@@ -106,21 +113,21 @@ int parseHeaders(char buff[BUFFER_SIZE],ssize_t buffSize,struct t_treeNode *head
     }
     carryOver[total] = buff[i];
     if(total >= BUFFER_SIZE){
-      error("ERROR: BUFFER OVERFLOW IN PARSER");
+      error("BUFFER OVERFLOW IN PARSER");
     }
 
     total +=1;
     if((status & AFTER_COLON) != AFTER_COLON){
       //amount of chars before colon
-      valueLen +=1;
-    }else{
-      //
       keyLen +=1;
+    }else{
+      valueLen +=1;
     }
    }
    
    if(total != 0){
     status |=CARRYOVER;
+    debug("Carrying over");
    }
    return total; // TODO return the right thing
 }
