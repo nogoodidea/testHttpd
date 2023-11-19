@@ -1,6 +1,0 @@
-[submodule "kore"]
-	path = kore
-	url = https://git.kore.io/kore.git
-[submodule "ulfius"]
-	path = ulfius
-	url = https://github.com/babelouest/ulfius.git
