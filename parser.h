@@ -6,6 +6,6 @@
 
 #define BUFFER_SIZE 2048
 
-int parseHeaders(char buff[BUFFER_SIZE],ssize_t buffSize,struct t_treeNode *head);
+int parseHeaders(char buff[BUFFER_SIZE],ssize_t buffSize,struct t_treeNode **head);
 
 #endif //H_PARSER 

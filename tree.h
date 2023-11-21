@@ -12,8 +12,8 @@ struct t_treeNode{
 
 const char *searchTree(const struct t_treeNode tree,const char *key);
 void *makeNode(struct t_treeNode *parent,char *key,char *value);
-void freeNodes(struct t_treeNode *node);
-void addNode(struct t_treeNode *tree,char *key,char *value);
+void freeNodes(struct t_treeNode **node);
+void addNode(struct t_treeNode **tree,char *key,char *value);
 
 void printNodes(struct t_treeNode node);
 

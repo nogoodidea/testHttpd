@@ -23,7 +23,7 @@
 #define CARRIAGE_RETURN 8
 #define FIRSTLINE 16
 
-int parseHeaders(char buff[BUFFER_SIZE],ssize_t buffSize,struct t_treeNode *head){
+int parseHeaders(char buff[BUFFER_SIZE],ssize_t buffSize,struct t_treeNode **head){
   /*******************
    * int parseHeaders()
    *    buff[BUFFER_SIZE] - char array with http text
@@ -68,8 +68,6 @@ int parseHeaders(char buff[BUFFER_SIZE],ssize_t buffSize,struct t_treeNode *head
      
     if(buff[i] == ':'){
       status |= AFTER_COLON;
-      debugInt(keyLen);
-      debugInt(valueLen);
     }
     if(buff[i] == '\r'){
       status |= CARRIAGE_RETURN; 
@@ -100,7 +98,6 @@ int parseHeaders(char buff[BUFFER_SIZE],ssize_t buffSize,struct t_treeNode *head
         }
       }else{
         // got 2 newlines after each other
-        debug("RETURNING");
         return (i-total)-1;
       }
       total = 0;
