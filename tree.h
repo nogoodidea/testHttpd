@@ -10,7 +10,7 @@ struct t_treeNode{
   struct t_treeNode *child[MAX_CHILDREN];
 };
 
-const char *searchTree(const struct t_treeNode tree,const char *key);
+char *searchTree(struct t_treeNode *tree,const char *key);
 void *makeNode(struct t_treeNode *parent,char *key,char *value);
 void freeNodes(struct t_treeNode **node);
 void addNode(struct t_treeNode **tree,char *key,char *value);

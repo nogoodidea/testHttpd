@@ -79,6 +79,10 @@ void handleConnection(int sock){
   char buf[BUFFER_SIZE];
   ssize_t bufLen = 1; // can't be started at zero
   struct t_treeNode *node = NULL;
+  
+  enum httpRequest request;
+  char *filePath = NULL;
+
   while(bufLen != 0){
     bufLen = readSocket(sock,buf,sizeof(buf));
     if(bufLen == -1){//error handler
@@ -87,10 +91,11 @@ void handleConnection(int sock){
     // handles a socket
     int headerStatus = parseHeaders(buf,bufLen,&node);
     if(headerStatus != 0){
-      fprintf(stderr,"%p",node);
       printNodes(*node);
+      request = parseRequest(node,&filePath);
     }
   }
+  freeNodes(&node);
   // react to the headers
 }
 

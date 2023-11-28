@@ -26,7 +26,7 @@ int sorting(struct t_treeNode *node,const char *key){
 }
 
 
-const char *searchTree(struct t_treeNode *node,const char *key){
+char *searchTree(struct t_treeNode *node,const char *key){
   int sortReturn;
   while (node != NULL){
     sortReturn = sorting(node,key);
@@ -58,6 +58,10 @@ void addNode(struct t_treeNode **node,char *key,char *value){
   int sortReturn;
   while (*node != NULL){
     sortReturn = sorting(*node,key);
+    if(sortReturn == MAX_CHILDREN){
+      debug("Tree add failed");
+      return;  // can't add
+    }
     node = &((*node)->child[sortReturn]); 
   }
   makeNode(node,key,value);
@@ -67,6 +71,8 @@ void addNode(struct t_treeNode **node,char *key,char *value){
 void freeNodes(struct t_treeNode **node){
    for(size_t i=0;i<MAX_CHILDREN;i+=1){
     if((*node)->child[i] != NULL){
+      if((*node)->key != NULL){free((*node)->key);}
+      if((*node)->value != NULL){free((*node)->value);}
       freeNodes(&(*node)->child[i]);
       }
    }
@@ -76,12 +82,12 @@ void freeNodes(struct t_treeNode **node){
 
 // prints out the tree, for error checking
 void printNodes(struct t_treeNode node){
-  debug("NODE");
-  debug(node.key);
-  debug(node.value);
   for(size_t i=0;i<MAX_CHILDREN;i+=1){
     if(node.child[i] != NULL){
       printNodes(*(node.child[i]));
     };
   }
+  debug("NODE");
+  debug(node.key);
+  debug(node.value);
 }
