@@ -51,7 +51,7 @@
 
 // header parser
 #include "parser.h"
-
+#include "file.h"
 
 // global struct 
 typedef struct {
@@ -81,7 +81,6 @@ void handleConnection(int sock){
   struct t_treeNode *node = NULL;
   
   enum httpRequest request;
-  char *filePath = NULL;
 
   while(bufLen != 0){
     bufLen = readSocket(sock,buf,sizeof(buf));
@@ -89,10 +88,9 @@ void handleConnection(int sock){
       socketError(); 
     }
     // handles a socket
-    int headerStatus = parseHeaders(buf,bufLen,&node);
+    int headerStatus = parseHeaders(buf,bufLen,&node,&request);
     if(headerStatus != 0){
       printNodes(*node);
-      request = parseRequest(node,&filePath);
     }
   }
   freeNodes(&node);
@@ -165,13 +163,33 @@ int main(int argc,char **argv){
   initGlobal();
   
   int port;
+  char *path;
+
+  //CHROOT
+  if (argc > 2){
+    path = argv[2];
+  }else{
+    debug("NO CHROOT PATH USING CURRENT PATH");
+    path = getcwd(NULL,0);
+  }
+
+  //PORT
   if (argc > 1){
-  	port = atoi(argv[1]);
+  	port = htonl(atoi(argv[1]));
   }else {
 	  port = 8000;
   }
 
-  int listenSocket = initListenSocket(port); 
+  //CHROOT
+  debug(path);
+  if(chdir(path) == -1){
+    error("chaninging directery failed");
+  }
+  /*if(chroot(path) == -1){
+    error("chroot error");
+  }*/
+
+int listenSocket = initListenSocket(port); 
   debug("listenSocket is up");
   listenSocketLoop(listenSocket);
 

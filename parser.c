@@ -13,7 +13,7 @@
 
 //defines
 
-#define BUFFER_SIZE 2048
+#define BUFFER_SIZE 256
 
 #define lineBreak "\n\r"
 
@@ -24,19 +24,116 @@
 #define FIRSTLINE 16
 
 
-#define AFTER_SPACE 1
+// for ascii encoding
+#define MIN_PERCENT_ENCODING 32
+#define MAX_PERCENT_ENCODING 126
 
-const char **percentEncoding = ["20","21","22","23","24","25","26","27","28","29","2A","2B","2C","2F","3A","3B","3D","3F","40","5B","5D"];
-const char *percentDecoding = " !\"#$%&\'()*+,/:;=?@[]"
+#define PARSE_HTTP_METHOD 1
+#define PERCENT 2
+#define PERCENT_ZERO 4
+#define PERCENT_ONE 8
+
+
 
 //datatypes
 enum httpRequest {GET,POST,HEAD,ERROR};
+  
+enum httpRequest parseHttpMethod(char *method){
+  /******************
+   * enum httpRequest parseHttpMethod(char *method)
+   *   char *method - the method to parse to see if it's supported
+   ******************/
+  if(strcmp("GET",method) == 0){
+    return GET; 
+  }
+  if(strcmp("POST",method) == 0){
+    return POST;
+  }
+  if(strcmp("HEAD",method) == 0){
+    return HEAD;
+  }
+  return ERROR;
+}
 
-int parseHeaders(char buff[BUFFER_SIZE],ssize_t buffSize,struct t_treeNode **head){
+char percentDecode(char *code){
+  /******************
+   * char percentDecode(char *code)
+   *  code -  the 2 numbers to decode from %encodeing
+   ******************/
+  char hex[5] = "0x\0"; 
+  strcat(hex,code); // assumes 2 chars
+  int out = atoi(hex);
+
+  if( (MIN_PERCENT_ENCODING <= out) && (out <= MAX_PERCENT_ENCODING) ){
+    return '\0'+out;
+  }
+  return '\0';
+}
+
+void parseFirstline(char buff[BUFFER_SIZE],ssize_t buffSize,char **path,enum httpRequest *request){
+  /*****************
+   * parses the first line, sets request and returns the path
+   *
+   *
+   *
+   *
+   *****************/
+  char lineBuff[BUFFER_SIZE];
+  char hexBuff[3] = "\0\0\0";
+
+  unsigned int status = PARSE_HTTP_METHOD;
+  int count = 0; // amount of spaces controles section parsed
+
+  size_t o = 0; // controler needed to do proper
+  for(size_t i = 0; i < buffSize; i += 1){
+    if(buff[i] == ' '){
+      count +=  1;
+      continue;
+    }
+    if(count == 1){
+      if((status & PARSE_HTTP_METHOD)){
+        *request = parseHttpMethod(buff);
+        status &= ~(PARSE_HTTP_METHOD);
+
+      }
+      if(buff[i] == '%'){
+        status |= PERCENT;
+      }
+      switch(status){
+        case PERCENT:
+          status |=PERCENT_ZERO;
+          status &= ~PERCENT;
+          break;
+        case PERCENT_ZERO:
+          hexBuff[0] = buff[i];
+          status |= PERCENT_ONE;
+          status &= ~PERCENT_ZERO;
+          break;
+        case PERCENT_ONE:
+          status &= ~PERCENT_ONE;
+          hexBuff[1] = buff[i];
+          lineBuff[o] = percentDecode(hexBuff);  
+          o+=1;
+          break;
+        default:
+          lineBuff[o] = buff[i];
+          o+=1;
+          break;
+       }
+     }
+   }
+  *path = (char*)malloc(sizeof(char)*(o+1));
+  memcpy(*path,lineBuff,o);
+  (*path)[o] = '\0';
+}
+
+int parseHeaders(char buff[BUFFER_SIZE],ssize_t buffSize,struct t_treeNode **head,enum httpRequest *request){
   /*******************
    * int parseHeaders()
    *    buff[BUFFER_SIZE] - char array with http text
    *    ssize_t buffSize  - size of used buffer
+   *    struct t_treeNode **head - properts added
+   *    enum httpRequest *request - the request
    *  
    *  returns the amount of chars left
    *  returns negative number of chars left for the http end
@@ -68,6 +165,11 @@ int parseHeaders(char buff[BUFFER_SIZE],ssize_t buffSize,struct t_treeNode **hea
 
    static ssize_t i = 0;
 
+   // set request to error if new
+   if((status&FIRSTLINE)==FIRSTLINE){
+     *request = ERROR;
+   }
+
    // handle carry over
    if(CARRYOVER && i < BUFFER_SIZE){
     status &= ~CARRYOVER;
@@ -94,10 +196,16 @@ int parseHeaders(char buff[BUFFER_SIZE],ssize_t buffSize,struct t_treeNode **hea
       //remove some bit flags
       status &= ~(AFTER_COLON|CARRIAGE_RETURN|NEWLINE);
      
-      if(keyLen > 0){
-        key = (char*)malloc(sizeof(char)*(keyLen+1));
-        memcpy(key,&(carryOver[0]),keyLen);
-        key[keyLen] = '\0';
+      if( ((status & FIRSTLINE)== FIRSTLINE ) ){
+        // FIRST LINE HANDLER
+        parseFirstline(buff,keyLen,&key,request);
+
+      }else{
+          if(keyLen > 0){
+          key = (char*)malloc(sizeof(char)*(keyLen+1));
+          memcpy(key,&(carryOver[0]),keyLen);
+          key[keyLen] = '\0';
+        }
       }
 
       if(valueLen > 0){
@@ -109,7 +217,7 @@ int parseHeaders(char buff[BUFFER_SIZE],ssize_t buffSize,struct t_treeNode **hea
       if(0<total){
         if((status&FIRSTLINE)==FIRSTLINE){
           status &= ~(FIRSTLINE);
-          addNode(head,"REQUEST",key);
+          addNode(head,"PATH",key);
         }else{
           addNode(head,key,value);
         }
@@ -146,67 +254,5 @@ int parseHeaders(char buff[BUFFER_SIZE],ssize_t buffSize,struct t_treeNode **hea
    return total; // TODO return the right thing
 }
 
-char percentDecode(char *code){
-  /******************
-   * char percentDecode(char *code)
-   *  code -  the 2 numbers to decode from %encodeing
-   *
-   *
-   *
-   ******************/
-  size_t midpoint = 11; // midpoint
-  size_t start = 0;
-  size_t end = 0;
-  
-
-  while( 0!=(out = strcmp(code,percentEncoding[midpoint])) ){
-    if(out < 0){
-      start = midpoint;
-    }else{
-      end = midpoint;
-    }
-    midpoint = (start+end)/2;
-        
-    }
-  }
-  return percentDecoding[midpoint];
-}
 
 
-
-enum httpRequest parseRequest(struct t_treeNode *head, char **requestPath){
-  /***********************
-   * return enum httpRequest()
-   *    struct t_nodeTree root - 
-   *    char **requestPath - the path of a request, will need to be freed if it's not NULL also should be defalt at NULL cause i an't freeing shit
-   *     
-   *    
-   * parses a http request 
-   *
-   **********************/
-  char *item = searchTree(head,"REQUEST");
-  debug(item);
-
-  unsigned int count = 0;
-  unsigned int status = 0;
-
-  size_t i = 0;
-  while(item[i] != NULL){
-    
-    if(item[i] == ' '){
-      count += 1;
-    }
-
-    if( (status & AFTER_SPACE) == AFTER_SPACE ){
-      if(item[i] == ' '){
-        
-      }
-
-    }
-    i+=1;// incroment
-  }
-  
-
-  return ERROR;
-
-}

@@ -60,6 +60,8 @@ void addNode(struct t_treeNode **node,char *key,char *value){
     sortReturn = sorting(*node,key);
     if(sortReturn == MAX_CHILDREN){
       debug("Tree add failed");
+      if(key != NULL){free(key);}
+      if(value != NULL){free(value);}
       return;  // can't add
     }
     node = &((*node)->child[sortReturn]); 
@@ -88,6 +90,6 @@ void printNodes(struct t_treeNode node){
     };
   }
   debug("NODE");
-  debug(node.key);
-  debug(node.value);
+  if(node.key !=NULL){debug(node.key);}
+  if(node.value !=NULL){debug(node.value);}
 }
