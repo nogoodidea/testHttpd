@@ -55,6 +55,37 @@ enum httpRequest parseHttpMethod(char *method){
   return ERROR;
 }
 
+char *rectrictPath(char *path){
+  /**************************
+   * char *rectrictPath(char *path)
+   *  path - the path to find a file, it will be truncated and the first backslash after any backtraseing will be removed
+   * 
+   * 
+   **************************/
+  
+  size_t i = 0;
+  size_t o = 0;
+
+  char pathBuff[BUFFER_SIZE];
+
+  for(;path[i] == '\0';i+=1){
+    if(i >= BUFFER_SIZE){
+      error("buffer overflow in rectrictPath");
+    }
+    if(strncmp(&(path[i]),"../",sizeof(char)*3) == 0){
+      i+=3;
+    }
+    pathBuff[o] = path[i];
+    o+=1;
+  }
+
+  char *out = malloc(sizeof(char)*(o+1));
+  memcpy(pathBuff,out,o);
+  out[o] = '\0';
+
+  return out;
+}
+
 char percentDecode(char *code){
   /******************
    * char percentDecode(char *code)
@@ -122,9 +153,8 @@ void parseFirstline(char buff[BUFFER_SIZE],ssize_t buffSize,char **path,enum htt
        }
      }
    }
-  *path = (char*)malloc(sizeof(char)*(o+1));
-  memcpy(*path,lineBuff,o);
-  (*path)[o] = '\0';
+   lineBuff[o] = '\0';
+   (*path) = rectrictPath(lineBuff);
 }
 
 int parseHeaders(char buff[BUFFER_SIZE],ssize_t buffSize,struct t_treeNode **head,enum httpRequest *request){
@@ -137,6 +167,8 @@ int parseHeaders(char buff[BUFFER_SIZE],ssize_t buffSize,struct t_treeNode **hea
    *  
    *  returns the amount of chars left
    *  returns negative number of chars left for the http end
+   *
+   *  TODO Fix n^3 time complexety 
    *
    *  keeps 2 static varables
    *  carryOver carryes unresolved strings from the previus function call

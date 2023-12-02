@@ -1,13 +1,26 @@
 // for files
 #include <stdio.h>
+#include <stdlib.h>
+
+#include <unistd.h>
 #include <dirent.h>
+#include <fcntl.h>
 
 #include <string.h>
+
+// BUFFER SIZE
+#include "parser.h"
+
+//debug
+#include "logging.h"
+
+// GET THE ERROR PAGE 
+
 
 char *getFileFormat(char *fileName){
   /***********************
    *char *getFileFormat(char *fileName)
-   * char *fileName - the name of the file
+   * char *fileName - the path of the file
    * 
    * returns the proper file MIME (IANA media types)
    * if we don't know what sourt of file it is it uses 
@@ -71,5 +84,16 @@ char *getFileFormat(char *fileName){
   return "application/octet-stream";
 }
 
-
-
+int getFile(char *path){
+  /**************************
+   *int getFile(char *path)
+   *  path - the file path to try to get, if it can't find the file it will look for an index file
+   *  returns -1 on error
+   **************************/
+  debug(path);
+  if(access(path,R_OK)==0){
+    return open(path,O_RDONLY); 
+  }else{
+   return -1;
+  }
+}
