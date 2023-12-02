@@ -59,29 +59,35 @@ char *rectrictPath(char *path){
   /**************************
    * char *rectrictPath(char *path)
    *  path - the path to find a file, it will be truncated and the first backslash after any backtraseing will be removed
-   * 
-   * 
    **************************/
   
-  size_t i = 0;
   size_t o = 0;
-
+  size_t i = 0;
   char pathBuff[BUFFER_SIZE];
+  
 
-  for(;path[i] == '\0';i+=1){
+  if(path[0] == '/'){
+    i = 1;
+  }
+
+  for(;path[i] != '\0';i+=1){
     if(i >= BUFFER_SIZE){
       error("buffer overflow in rectrictPath");
     }
     if(strncmp(&(path[i]),"../",sizeof(char)*3) == 0){
       i+=3;
+      continue;
     }
+
+    debugChar(path[i]);
     pathBuff[o] = path[i];
     o+=1;
   }
 
   char *out = malloc(sizeof(char)*(o+1));
-  memcpy(pathBuff,out,o);
+  memcpy(out,pathBuff,o+1);
   out[o] = '\0';
+  debug(out);
 
   return out;
 }
@@ -112,7 +118,7 @@ void parseFirstline(char buff[BUFFER_SIZE],ssize_t buffSize,char **path,enum htt
   char lineBuff[BUFFER_SIZE];
   char hexBuff[3] = "\0\0\0";
 
-  unsigned int status = PARSE_HTTP_METHOD;
+  unsigned short int status = PARSE_HTTP_METHOD;
   int count = 0; // amount of spaces controles section parsed
 
   size_t o = 0; // controler needed to do proper
@@ -187,7 +193,7 @@ int parseHeaders(char buff[BUFFER_SIZE],ssize_t buffSize,struct t_treeNode **hea
    *******************/
 
    static char carryOver[BUFFER_SIZE];// pointer to carryed over values for keys
-   static unsigned int status = FIRSTLINE;
+   static short unsigned int status = FIRSTLINE;
    static unsigned int total;
    static unsigned int valueLen;
    static unsigned int keyLen;

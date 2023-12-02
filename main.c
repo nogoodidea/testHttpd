@@ -79,18 +79,41 @@ void handleConnection(int sock){
   char buf[BUFFER_SIZE];
   ssize_t bufLen = 1; // can't be started at zero
   struct t_treeNode *node = NULL;
+  int headerStatus = 0;
   
   enum httpRequest request;
 
-  while(bufLen != 0){
+  // poll setup
+  struct pollfd *pollstr;
+  
+  pollstr->fd = sock; // fd
+  pollstr->events = POLLIN|POLLHUP;
+  pollstr->revents = 0;
+
+  while( (pollstr->revents & POLLHUP) != POLLHUP){
+    poll(pollstr,1,-1);
     bufLen = readSocket(sock,buf,sizeof(buf));
     if(bufLen == -1){//error handler
       socketError(); 
     }
     // handles a socket
-    int headerStatus = parseHeaders(buf,bufLen,&node,&request);
+    headerStatus = parseHeaders(buf,bufLen,&node,&request);
+
     if(headerStatus != 0){
-      printNodes(*node);
+      // RESPOND
+      switch(request){
+        case HEAD:
+            debug("HEAD");
+            break;
+        case GET:
+            debug("GET");
+           break;
+        case POST:
+          debug("POST");
+          break;
+        default:
+         
+      }
     }
   }
   freeNodes(&node);
