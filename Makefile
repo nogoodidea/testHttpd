@@ -4,7 +4,7 @@ CC_FLAGS := -Wall -pthread  -fsanitize=address -g
 LD_FLAGS := -r -b binary 
 
 HTTP_LD_FILES := html/error.html 
-OBJS := logging.o tree.o parser.o file.o main.o
+OBJS := logging.o hashTable.o parser.o file.o main.o
 
 OUT := server
 

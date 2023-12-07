@@ -47,7 +47,7 @@
 #include <poll.h>
 
 // tree
-#include "tree.h"
+#include "hashTable.h"
 
 // header parser
 #include "parser.h"
@@ -66,6 +66,21 @@ void initGlobal(){
   GLOBAL.exit = true;
 }
 
+size_t headerHashFunc(char *key){
+  /******************
+   *size_t headerHashFunc(char *key)
+   * key - the string that has the key
+   *
+   *
+   ******************/
+  size_t out = 0;
+  size_t strLen = strlen(key);
+  for(size_t i=0;i<strLen;i+=1){
+    out += i*key[i]^2;
+  }
+  return out;
+}
+
 
 //does the socket reading
 ssize_t readSocket(int sock,char buf[],ssize_t bufLen){
@@ -78,46 +93,63 @@ void handleConnection(int sock){
   // loops over request copys line from main buffer to line buf 
   char buf[BUFFER_SIZE];
   ssize_t bufLen = 1; // can't be started at zero
-  struct t_treeNode *node = NULL;
-  int headerStatus = 0;
+  struct hashTable *table = hashTableMk(20,headerHashFunc);
+  int headerStatus = 1;
   
   enum httpRequest request;
 
   // poll setup
-  struct pollfd *pollstr;
+  struct pollfd pollstr;
   
-  pollstr->fd = sock; // fd
-  pollstr->events = POLLIN|POLLHUP;
-  pollstr->revents = 0;
+  pollstr.fd = sock; // fd
+  pollstr.events = POLLIN|POLLHUP;
+  pollstr.revents = 0;
 
-  while( (pollstr->revents & POLLHUP) != POLLHUP){
-    poll(pollstr,1,-1);
-    bufLen = readSocket(sock,buf,sizeof(buf));
-    if(bufLen == -1){//error handler
-      socketError(); 
+  while( (pollstr.revents & POLLHUP ) != POLLHUP || (pollstr.revents & POLLERR) != POLLERR){
+    // TODO Just because the socket is closed does not mean there is not more data on it POLLHUP checks if 
+    int err = poll(&pollstr,1,-1);
+    if(err == -1){
+      error("error polling socket");
     }
-    // handles a socket
-    headerStatus = parseHeaders(buf,bufLen,&node,&request);
-
-    if(headerStatus != 0){
-      // RESPOND
-      switch(request){
-        case HEAD:
-            debug("HEAD");
-            break;
-        case GET:
-            debug("GET");
-           break;
-        case POST:
-          debug("POST");
-          break;
-        default:
-         
+    headerStatus =1; // reset for next call
+    while( (bufLen = readSocket(sock,buf,sizeof(buf)) ) != 0){
+      debugInt(bufLen);
+      if(bufLen == -1){//error handler
+        socketError(); 
+      }
+      // handles a socket
+      if(headerStatus > 0){
+        headerStatus = parseHeaders(buf,bufLen,table,&request);
+        hashTablePrint(table);
+      }else{
+        // TODO PARSE BODY HERE
+        debug("REMEMBER TO PARSE THE BODY");
       }
     }
+  
+    // sock has been read now respeond to it
+    hashTablePrint(table);
+
+    // RESPOND
+    switch(request){
+      case HEAD:
+          debug("HEAD");
+          break;
+      case GET:
+          debug("GET");
+         break;
+      case POST:
+        debug("POST");
+        break;
+      default:
+        debug("Unsuported method");
+    }
+    hashTableFree(table);
+    debug("HANDELED READY FOR NEXT REQUEST");
   }
-  freeNodes(&node);
+  debug("Connection closed");
   // react to the headers
+  //
 }
 
 // socket listener start

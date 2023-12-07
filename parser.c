@@ -5,7 +5,7 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include "tree.h"
+#include "hashTable.h"
 
 
 //error
@@ -38,6 +38,19 @@
 //datatypes
 enum httpRequest {GET,POST,HEAD,ERROR};
   
+
+void strToHeap(char *data,char **out,size_t length){
+  /*************
+   *void strToHeap(char *data,char *out,size_t length)
+   *  char *data - the string of data, should not be null terminated as one is added
+   *  char **out - the pointer to the out, 
+   *  size_t length - the length of the outstring
+   *************/
+  *out = (char*)malloc(sizeof(char)*(length+1));
+  memcpy(*out,data,length);
+  (*out)[length] = '\0';
+}
+
 enum httpRequest parseHttpMethod(char *method){
   /******************
    * enum httpRequest parseHttpMethod(char *method)
@@ -79,7 +92,6 @@ char *rectrictPath(char *path){
       continue;
     }
 
-    debugChar(path[i]);
     pathBuff[o] = path[i];
     o+=1;
   }
@@ -87,7 +99,6 @@ char *rectrictPath(char *path){
   char *out = malloc(sizeof(char)*(o+1));
   memcpy(out,pathBuff,o+1);
   out[o] = '\0';
-  debug(out);
 
   return out;
 }
@@ -110,9 +121,6 @@ char percentDecode(char *code){
 void parseFirstline(char buff[BUFFER_SIZE],ssize_t buffSize,char **path,enum httpRequest *request){
   /*****************
    * parses the first line, sets request and returns the path
-   *
-   *
-   *
    *
    *****************/
   char lineBuff[BUFFER_SIZE];
@@ -163,12 +171,12 @@ void parseFirstline(char buff[BUFFER_SIZE],ssize_t buffSize,char **path,enum htt
    (*path) = rectrictPath(lineBuff);
 }
 
-int parseHeaders(char buff[BUFFER_SIZE],ssize_t buffSize,struct t_treeNode **head,enum httpRequest *request){
+int parseHeaders(char buff[BUFFER_SIZE],ssize_t buffSize,struct hashTable *table,enum httpRequest *request){
   /*******************
    * int parseHeaders()
    *    buff[BUFFER_SIZE] - char array with http text
    *    ssize_t buffSize  - size of used buffer
-   *    struct t_treeNode **head - properts added
+   *    struct hashTable *table - properts added
    *    enum httpRequest *request - the request
    *  
    *  returns the amount of chars left
@@ -220,6 +228,10 @@ int parseHeaders(char buff[BUFFER_SIZE],ssize_t buffSize,struct t_treeNode **hea
     keyLen = 0;
    }
 
+   // if the buffer is done exit
+   if(buffSize==0){
+    return 0;
+   }
 
    for(;i<buffSize;i+=1){
      
@@ -240,28 +252,26 @@ int parseHeaders(char buff[BUFFER_SIZE],ssize_t buffSize,struct t_treeNode **hea
 
       }else{
           if(keyLen > 0){
-          key = (char*)malloc(sizeof(char)*(keyLen+1));
-          memcpy(key,&(carryOver[0]),keyLen);
-          key[keyLen] = '\0';
+            strToHeap(&(carryOver[0]),&key,keyLen);
         }
       }
 
       if(valueLen > 0){
-        value = (char*)malloc(sizeof(char)*(valueLen+1));
-        memcpy(value,&(carryOver[keyLen+2]),valueLen);
-        value[valueLen] = '\0';
+        strToHeap(&(carryOver[keyLen+2]),&value,valueLen);
       }
 
       if(0<total){
         if((status&FIRSTLINE)==FIRSTLINE){
           status &= ~(FIRSTLINE);
-          addNode(head,"PATH",key);
+          char *path;
+          strToHeap("PATH",&path,4);
+          hashTableAdd(table,path,key);
         }else{
-          addNode(head,key,value);
+          hashTableAdd(table,key,value);
         }
       }else{
         // got 2 newlines after each other
-        return (i-total)-1;
+        return (i-total);
       }
       total = 0;
       valueLen = 0;
