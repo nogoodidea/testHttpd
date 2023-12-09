@@ -15,7 +15,23 @@
 #include "logging.h"
 
 // GET THE ERROR PAGE 
+extern char _binary_html_error_start[];
+extern char _binary_html_end[];
+extern size_t _binary_html_error_size;
 
+int getFile(char *path){
+  /**************************
+   *int getFile(char *path)
+   *  path - the file path to try to get, if it can't find the file it will look for an index file
+   *  returns -1 on error
+   **************************/
+  debug(path);
+  if(access(path,R_OK)==0){
+    return open(path,O_RDONLY); 
+  }else{
+   return -1;
+  }
+}
 
 char *getFileFormat(char *fileName){
   /***********************
@@ -84,16 +100,34 @@ char *getFileFormat(char *fileName){
   return "application/octet-stream";
 }
 
-int getFile(char *path){
-  /**************************
-   *int getFile(char *path)
-   *  path - the file path to try to get, if it can't find the file it will look for an index file
-   *  returns -1 on error
-   **************************/
-  debug(path);
-  if(access(path,R_OK)==0){
-    return open(path,O_RDONLY); 
-  }else{
-   return -1;
+
+void 
+
+int respondToRequest(int sock,enum httpRequest request,struct hashTable *table){
+  /******************
+   *int respondToRequest(int sock,enum httpRequest request,struct hashTable *table)
+   *  responds to requests
+   *  int sock - the socket
+   *  enum httpRequest request
+   *  struct harshTable *table
+   ******************/
+  switch(request){
+      case HEAD:
+          debug("HEAD");
+          break;
+      case GET:
+         debug("GET");
+         break;
+      case POST:
+        debug("POST");
+        break;
+      case ERROR:
+        error("SERVER ERROR");
+      default:
+        debug("Unsuported method");
   }
 }
+
+
+
+

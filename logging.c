@@ -33,7 +33,7 @@ void debugInt(int i){
 void socketError(){
   switch(errno){
     case EAGAIN:
-      error("socket is nonblocking and operation will block");
+      debug("socket is nonblocking and operation will block");
       break;
     case EBADF:
       error("socket is not a vaid fd");

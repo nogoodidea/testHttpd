@@ -137,6 +137,7 @@ void parseFirstline(char buff[BUFFER_SIZE],ssize_t buffSize,char **path,enum htt
     }
     if(count == 1){
       if((status & PARSE_HTTP_METHOD)){
+        buff[i-1] = '\0';
         *request = parseHttpMethod(buff);
         status &= ~(PARSE_HTTP_METHOD);
 
@@ -271,7 +272,7 @@ int parseHeaders(char buff[BUFFER_SIZE],ssize_t buffSize,struct hashTable *table
         }
       }else{
         // got 2 newlines after each other
-        return (i-total);
+        return -(abs(i-total));
       }
       total = 0;
       valueLen = 0;

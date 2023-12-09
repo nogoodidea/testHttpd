@@ -32,7 +32,7 @@ struct hashTable *hashTableMk(size_t size,size_t (*hashFunc)()){
    *  size - size of the array
    *  hashFunc - pointer to a hash function
    *******************/
-  struct hashTable*table = malloc(sizeof(struct hashTable));
+  struct hashTable *table = malloc(sizeof(struct hashTable));
   table->size = size;
   table->used = 0;
   table->hashFunc = hashFunc;
@@ -42,12 +42,15 @@ struct hashTable *hashTableMk(size_t size,size_t (*hashFunc)()){
 
 void hashTableInsert(struct hashTable *table,char *key,char *value,size_t index){
   for(size_t i =0;i<table->size;i+=1){
-    if(table->table[index].key == NULL)
+    if(table->table[index].key == NULL){
+      table->table[index].key = key;
+      table->table[index].value = value;
+      table->used +=1;
+      return;
+    }
     index = (index+1)%table->size;
   }
-  table->table[index].key = key;
-  table->table[index].value = value;
-  table->used +=1;
+
 }
 
 void hashTableReHash(struct hashTable *table,size_t newSize){
@@ -70,6 +73,7 @@ void hashTableReHash(struct hashTable *table,size_t newSize){
     index %= table->size;
     hashTableInsert(table,oldTable[i].key,oldTable[i].value,index);
   }
+  free(oldTable);
 }
 
 void hashTableAdd(struct hashTable *table,char *key,char *value){
@@ -106,11 +110,26 @@ char *hashTableGet(struct hashTable *table,char *key){
 }
 
 
-void hashTableFree(struct hashTable *table){
+void hashTableClear(struct hashTable *table){
   for(size_t i=0;i<table->size;i+=1){
     if(table->table[i].key != NULL){free(table->table[i].key);table->table[i].key = NULL;}
     if(table->table[i].value != NULL){free(table->table[i].value);table->table[i].value = NULL;}
   }
+}
+
+void hashTableFree(struct hashTable **table){
+  /********************
+   *void hashTableDealloc(struct hashTable *table)
+   *  Frees the entire table
+   *
+   *
+   *******************/
+  hashTableClear(*table);
+  free((*table)->table);
+  (*table)->table = NULL;
+  (*table)->size = 0;
+  free(*table);
+  table = NULL;
 }
 
 void hashTablePrint(struct hashTable *table){

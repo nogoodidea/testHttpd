@@ -82,72 +82,45 @@ size_t headerHashFunc(char *key){
 }
 
 
-//does the socket reading
-ssize_t readSocket(int sock,char buf[],ssize_t bufLen){
-  return recv(sock,buf,bufLen,0);
-}
-
 // socket server the threaded part
 void handleConnection(int sock){
   // THE BUFFER
   // loops over request copys line from main buffer to line buf 
   char buf[BUFFER_SIZE];
-  ssize_t bufLen = 1; // can't be started at zero
+  ssize_t bufLen = BUFFER_SIZE; // can't be started at zero
   struct hashTable *table = hashTableMk(20,headerHashFunc);
   int headerStatus = 1;
   
   enum httpRequest request;
 
-  // poll setup
-  struct pollfd pollstr;
-  
-  pollstr.fd = sock; // fd
-  pollstr.events = POLLIN|POLLHUP;
-  pollstr.revents = 0;
+  while(bufLen == BUFFER_SIZE){
+    debugInt(bufLen);
+    bufLen = recv(sock,buf,BUFFER_SIZE,MSG_DONTWAIT);
+    if(bufLen == -1){//error handler
+      socketError(); 
+      break;
+    }
 
-  while( (pollstr.revents & POLLHUP ) != POLLHUP || (pollstr.revents & POLLERR) != POLLERR){
-    // TODO Just because the socket is closed does not mean there is not more data on it POLLHUP checks if 
-    int err = poll(&pollstr,1,-1);
-    if(err == -1){
-      error("error polling socket");
+    // handles a socket
+    if(headerStatus > 0){
+      headerStatus = parseHeaders(buf,bufLen,table,&request);
     }
-    headerStatus =1; // reset for next call
-    while( (bufLen = readSocket(sock,buf,sizeof(buf)) ) != 0){
-      debugInt(bufLen);
-      if(bufLen == -1){//error handler
-        socketError(); 
-      }
-      // handles a socket
-      if(headerStatus > 0){
-        headerStatus = parseHeaders(buf,bufLen,table,&request);
-        hashTablePrint(table);
-      }else{
-        // TODO PARSE BODY HERE
-        debug("REMEMBER TO PARSE THE BODY");
-      }
-    }
-  
-    // sock has been read now respeond to it
-    hashTablePrint(table);
-
-    // RESPOND
-    switch(request){
-      case HEAD:
-          debug("HEAD");
-          break;
-      case GET:
-          debug("GET");
-         break;
-      case POST:
-        debug("POST");
-        break;
-      default:
-        debug("Unsuported method");
-    }
-    hashTableFree(table);
-    debug("HANDELED READY FOR NEXT REQUEST");
   }
+
+  bufLen = BUFFER_SIZE;
+
+  hashTablePrint(table);
+  
+  // RESPOND
+  
+
+  // CLEAN UP FOR NEXT CALL
+  hashTableClear(table);
+  debug("HANDELED READY FOR NEXT REQUEST");
+  // CONNECTION CLOSED FINAL CLEAN UP
+  hashTableFree(&table);
   debug("Connection closed");
+
   // react to the headers
   //
 }
