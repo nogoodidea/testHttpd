@@ -25,10 +25,15 @@ int getFile(char *path){
    *  path - the file path to try to get, if it can't find the file it will look for an index file
    *  returns -1 on error
    **************************/
+  if(path == NULL){
+    debug("PATH IS NULL");
+    return -1;
+  }
   debug(path);
   if(access(path,R_OK)==0){
     return open(path,O_RDONLY); 
   }else{
+   debug("FILE DOES NOT EXIST");
    return -1;
   }
 }
@@ -101,9 +106,7 @@ char *getFileFormat(char *fileName){
 }
 
 
-void 
-
-int respondToRequest(int sock,enum httpRequest request,struct hashTable *table){
+void respondToRequest(int sock,const char *path,enum httpRequest request,struct hashTable *table){
   /******************
    *int respondToRequest(int sock,enum httpRequest request,struct hashTable *table)
    *  responds to requests
@@ -111,6 +114,9 @@ int respondToRequest(int sock,enum httpRequest request,struct hashTable *table){
    *  enum httpRequest request
    *  struct harshTable *table
    ******************/
+  debug((const char *)path);
+  int file = getFile(hashTableGet(table,"PATH"));
+    
   switch(request){
       case HEAD:
           debug("HEAD");

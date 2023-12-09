@@ -100,7 +100,7 @@ char *hashTableGet(struct hashTable *table,char *key){
    ******************/
   size_t index = (table->hashFunc)(key);
   index %= table->size;
-  for(size_t i =0;i>table->size;i+=1){
+  for(size_t i=0;i<table->size;i+=1){
    if(0==strcmp(table->table[index].key,key)){
     return table->table[index].value;
    }

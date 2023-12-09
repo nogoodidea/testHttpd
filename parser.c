@@ -7,7 +7,6 @@
 #include <string.h>
 #include "hashTable.h"
 
-
 //error
 #include "logging.h"
 
@@ -32,7 +31,6 @@
 #define PERCENT 2
 #define PERCENT_ZERO 4
 #define PERCENT_ONE 8
-
 
 
 //datatypes
@@ -87,8 +85,10 @@ char *rectrictPath(char *path){
     if(i >= BUFFER_SIZE){
       error("buffer overflow in rectrictPath");
     }
-    if(strncmp(&(path[i]),"../",sizeof(char)*3) == 0){
-      i+=3;
+    //TODO do ../ backtracking prevention
+    if(0==strncmp(&(path[i]),"../",3)){
+      debug("BACKTRACK DETECTED");
+      i+=2;
       continue;
     }
 
@@ -99,6 +99,7 @@ char *rectrictPath(char *path){
   char *out = malloc(sizeof(char)*(o+1));
   memcpy(out,pathBuff,o+1);
   out[o] = '\0';
+  debug(out);
 
   return out;
 }
@@ -140,7 +141,6 @@ void parseFirstline(char buff[BUFFER_SIZE],ssize_t buffSize,char **path,enum htt
         buff[i-1] = '\0';
         *request = parseHttpMethod(buff);
         status &= ~(PARSE_HTTP_METHOD);
-
       }
       if(buff[i] == '%'){
         status |= PERCENT;
@@ -163,6 +163,7 @@ void parseFirstline(char buff[BUFFER_SIZE],ssize_t buffSize,char **path,enum htt
           break;
         default:
           lineBuff[o] = buff[i];
+          debugChar(lineBuff[o]);
           o+=1;
           break;
        }

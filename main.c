@@ -83,9 +83,10 @@ size_t headerHashFunc(char *key){
 
 
 // socket server the threaded part
-void handleConnection(int sock){
+void handleConnection(int sock,const char *path){
   // THE BUFFER
   // loops over request copys line from main buffer to line buf 
+  //
   char buf[BUFFER_SIZE];
   ssize_t bufLen = BUFFER_SIZE; // can't be started at zero
   struct hashTable *table = hashTableMk(20,headerHashFunc);
@@ -94,7 +95,6 @@ void handleConnection(int sock){
   enum httpRequest request;
 
   while(bufLen == BUFFER_SIZE){
-    debugInt(bufLen);
     bufLen = recv(sock,buf,BUFFER_SIZE,MSG_DONTWAIT);
     if(bufLen == -1){//error handler
       socketError(); 
@@ -112,17 +112,15 @@ void handleConnection(int sock){
   hashTablePrint(table);
   
   // RESPOND
-  
+  respondToRequest(sock,path,request,table);
 
   // CLEAN UP FOR NEXT CALL
   hashTableClear(table);
-  debug("HANDELED READY FOR NEXT REQUEST");
+  debug("HANDELED\nREADY FOR NEXT REQUEST");
   // CONNECTION CLOSED FINAL CLEAN UP
   hashTableFree(&table);
   debug("Connection closed");
 
-  // react to the headers
-  //
 }
 
 // socket listener start
@@ -159,11 +157,14 @@ int initListenSocket(int port){
 }
 
 // main listenSocket loop
-void listenSocketLoop(int sockListen){ 
+void listenSocketLoop(int sockListen,const char *path){ 
   int newSock;
   struct sockaddr_in clientAddr;
   socklen_t clientAddrLen = sizeof(clientAddr);
   pid_t pid;
+
+  debug(path);
+
   while(1){
     newSock = accept(sockListen,(struct sockaddr*) &clientAddr,&clientAddrLen);
     if(newSock ==-1){
@@ -176,7 +177,7 @@ void listenSocketLoop(int sockListen){
     if(pid == 0){
       //fork
       debug("Forking");
-      handleConnection(newSock);
+      handleConnection(newSock,path);
       close(newSock);
       exit(0);
     }else{
@@ -191,7 +192,7 @@ int main(int argc,char **argv){
   initGlobal();
   
   int port;
-  char *path;
+  char *path = NULL;
 
   //CHROOT
   if (argc > 2){
@@ -200,6 +201,8 @@ int main(int argc,char **argv){
     debug("NO CHROOT PATH USING CURRENT PATH");
     path = getcwd(NULL,0);
   }
+  
+  const char *pathConst = path;
 
   //PORT
   if (argc > 1){
@@ -217,9 +220,9 @@ int main(int argc,char **argv){
     error("chroot error");
   }*/
 
-int listenSocket = initListenSocket(port); 
+  int listenSocket = initListenSocket(port); 
   debug("listenSocket is up");
-  listenSocketLoop(listenSocket);
+  listenSocketLoop(listenSocket,pathConst);
 
   //exit
   close(listenSocket);

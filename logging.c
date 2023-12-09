@@ -14,9 +14,11 @@ void error(char *err){
 }
 
 void debug(char *msg){
-  fputs("DEBUG:",stderr);
-  fputs(msg,stderr);
-  fputs("\n",stderr);
+  if(msg != NULL){
+    fputs("DEBUG:",stderr);
+    fputs(msg,stderr);
+    fputs("\n",stderr);
+  }
 }
 
 void debugChar(char c){
