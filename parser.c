@@ -77,10 +77,6 @@ char *rectrictPath(char *path){
   char pathBuff[BUFFER_SIZE];
   
 
-  if(path[0] == '/'){
-    i = 1;
-  }
-
   for(;path[i] != '\0';i+=1){
     if(i >= BUFFER_SIZE){
       error("buffer overflow in rectrictPath");

@@ -1,6 +1,8 @@
 // for files
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
+#include <sys/stat.h>
 
 #include <unistd.h>
 #include <dirent.h>
@@ -19,19 +21,29 @@ extern char _binary_html_error_start[];
 extern char _binary_html_end[];
 extern size_t _binary_html_error_size;
 
-int getFile(char *path){
+// HTTP VERSION
+#define HTTP_VERSION "HTTP/1.1"
+
+int getFile(char *path,struct stat *statOut){
   /**************************
    *int getFile(char *path)
-   *  path - the file path to try to get, if it can't find the file it will look for an index file
-   *  returns -1 on error
+   * gets the file spesified by the path
+   * returns -1 if error
+   * returns -2 if dir
+   * retuns fd otherwise
+   * path - the file path to try to get, if it can't find the file it will look for an index file
    **************************/
   if(path == NULL){
     debug("PATH IS NULL");
     return -1;
   }
   debug(path);
-  if(access(path,R_OK)==0){
-    return open(path,O_RDONLY); 
+  if(stat(path,statOut)==0){
+    if(statOut->st_mode & S_IFDIR){
+      return -2;
+    }else{
+      return open(path,O_RDONLY); 
+    }
   }else{
    debug("FILE DOES NOT EXIST");
    return -1;
@@ -106,17 +118,16 @@ char *getFileFormat(char *fileName){
 }
 
 
-void respondToRequest(int sock,const char *path,enum httpRequest request,struct hashTable *table){
-  /******************
-   *int respondToRequest(int sock,enum httpRequest request,struct hashTable *table)
-   *  responds to requests
-   *  int sock - the socket
-   *  enum httpRequest request
-   *  struct harshTable *table
-   ******************/
-  debug((const char *)path);
-  int file = getFile(hashTableGet(table,"PATH"));
-    
+void outputReponse(int sock,struct hashTable *table,enum httpRequest request){
+  /**********************
+   *void respondToRequest(int sock,int fileSocket,enum httpRequest request)
+   * responds to a request, the file is known to be valid
+   *  int sock - sock to respond with
+   *  int fileSocket - file opened
+   *  enum httpRequest request - the request sent 
+   *
+   *
+   **********************/
   switch(request){
       case HEAD:
           debug("HEAD");
@@ -134,6 +145,37 @@ void respondToRequest(int sock,const char *path,enum httpRequest request,struct 
   }
 }
 
+void respondToRequest(int sock,const char *path,enum httpRequest request,struct hashTable *table){
+  /******************
+   *int respondToRequest(int sock,enum httpRequest request,struct hashTable *table)
+   *  responds to requests
+   *  int sock - the socket
+   *  enum httpRequest request
+   *  struct harshTable *table
+   ******************/
 
+  // combine the paths
+  struct stat statOut;
+
+  char *responseBody = NULL;
+  
+  char *requestPath = hashTableGet(table,"PATH");
+  char *realPath = malloc(sizeof(char)*(strlen(path)+strlen(requestPath)+1));
+  strcpy(realPath,path);
+  strcat(realPath,requestPath);
+  int file = getFile(realPath,&statOut);
+
+  free(realPath);
+  
+  if(file == -1 ){
+    respondError(responseBody,table,request); 
+  }if(file == -2){
+    respondDir(responseBody,table,request,realPath);
+  }else{
+    respondFile(responseBody,table,request);
+  }
+  
+  outputReponse(sock,response);
+}
 
 
