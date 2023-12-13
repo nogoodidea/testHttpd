@@ -2,8 +2,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+// stat
 #include <sys/stat.h>
-
+#include <sys/sysmacros.h>
+// dirnet stuff
 #include <unistd.h>
 #include <dirent.h>
 #include <fcntl.h>
@@ -21,8 +23,14 @@ extern char _binary_html_error_start[];
 extern char _binary_html_end[];
 extern size_t _binary_html_error_size;
 
+extern char _binary_html_404_html_start[];
+extern char _binary_html_404_html_end[];
+extern size_t _binary_html_404_html_size;
+
 // HTTP VERSION
 #define HTTP_VERSION "HTTP/1.1"
+
+
 
 int getFile(char *path,struct stat *statOut){
   /**************************
@@ -44,10 +52,9 @@ int getFile(char *path,struct stat *statOut){
     }else{
       return open(path,O_RDONLY); 
     }
-  }else{
-   debug("FILE DOES NOT EXIST");
-   return -1;
   }
+ debug("FILE DOES NOT EXIST");
+ return -1;
 }
 
 char *getFileFormat(char *fileName){
@@ -118,7 +125,7 @@ char *getFileFormat(char *fileName){
 }
 
 
-void outputReponse(int sock,struct hashTable *table,enum httpRequest request){
+void outputReponse(int sock,char *responseBody,struct hashTable *table,enum httpRequest request){
   /**********************
    *void respondToRequest(int sock,int fileSocket,enum httpRequest request)
    * responds to a request, the file is known to be valid
@@ -129,9 +136,9 @@ void outputReponse(int sock,struct hashTable *table,enum httpRequest request){
    *
    **********************/
   switch(request){
-      case HEAD:
+      /*case HEAD:
           debug("HEAD");
-          break;
+          break;*/
       case GET:
          debug("GET");
          break;
@@ -143,6 +150,14 @@ void outputReponse(int sock,struct hashTable *table,enum httpRequest request){
       default:
         debug("Unsuported method");
   }
+}
+
+int respondFileNotFound(char *responseBody,struct hashTable *table,enum httpRequest request){
+    // add error code to http
+    hashTableAdd(table,"STATUS","404");
+    responseBody = malloc(_binary_html_404_html_size*sizeof(char));
+    memcpy(responseBody,_binary_html_404_html_start,_binary_html_404_html_size);
+    return 1;
 }
 
 void respondToRequest(int sock,const char *path,enum httpRequest request,struct hashTable *table){
@@ -167,15 +182,18 @@ void respondToRequest(int sock,const char *path,enum httpRequest request,struct 
 
   free(realPath);
   
-  if(file == -1 ){
-    respondError(responseBody,table,request); 
+  respondFileNotFound(responseBody,table,request); 
+
+  /*if(file == -1 ){
+    respondFileNotFound(responseBody,table,request); 
   }if(file == -2){
-    respondDir(responseBody,table,request,realPath);
+    respondDir(responseBody,table);
   }else{
-    respondFile(responseBody,table,request);
-  }
+    respondFile(responseBody,table,file);
+  }*/
   
-  outputReponse(sock,response);
+  outputReponse(sock,responseBody,table,request);
+  free(responseBody);
 }
 
 
