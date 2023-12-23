@@ -18,19 +18,15 @@
 //debug
 #include "logging.h"
 
-// GET THE ERROR PAGE 
-extern char _binary_html_error_start[];
-extern char _binary_html_end[];
-extern size_t _binary_html_error_size;
-
-extern char _binary_html_404_html_start[];
-extern char _binary_html_404_html_end[];
-extern size_t _binary_html_404_html_size;
+// error 
+#include "text.h"
 
 // HTTP VERSION
 #define HTTP_VERSION "HTTP/1.1"
 
+char *STATUS = NULL;
 
+const char *replyHeaders[] = ["HOST"];
 
 int getFile(char *path,struct stat *statOut){
   /**************************
@@ -124,7 +120,6 @@ char *getFileFormat(char *fileName){
   return "application/octet-stream";
 }
 
-
 void outputReponse(int sock,char *responseBody,struct hashTable *table,enum httpRequest request){
   /**********************
    *void respondToRequest(int sock,int fileSocket,enum httpRequest request)
@@ -137,11 +132,11 @@ void outputReponse(int sock,char *responseBody,struct hashTable *table,enum http
    **********************/
   switch(request){
       /*case HEAD:
-          debug("HEAD");
-          break;*/
+        debug("HEAD");
+        break;*/
       case GET:
-         debug("GET");
-         break;
+        debug("GET");
+        break;
       case POST:
         debug("POST");
         break;
@@ -152,11 +147,14 @@ void outputReponse(int sock,char *responseBody,struct hashTable *table,enum http
   }
 }
 
-int respondFileNotFound(char *responseBody,struct hashTable *table,enum httpRequest request){
+int respondFileNotFound(char **responseBody,struct hashTable *table,enum httpRequest request){
+    char *code;
+    strToHeap("404",&code,3);
     // add error code to http
-    hashTableAdd(table,"STATUS","404");
-    responseBody = malloc(_binary_html_404_html_size*sizeof(char));
-    memcpy(responseBody,_binary_html_404_html_start,_binary_html_404_html_size);
+    hashTableAdd(table,STATUS,code);
+    size_t len = strlen(textHtml404)+1;
+    (*responseBody) = malloc(len*sizeof(char));
+    memcpy( (*responseBody),textHtml404,len*sizeof(char));
     return 1;
 }
 
@@ -168,6 +166,9 @@ void respondToRequest(int sock,const char *path,enum httpRequest request,struct 
    *  enum httpRequest request
    *  struct harshTable *table
    ******************/
+
+  // set grobal
+  strToHeap("STATUS",&STATUS,6);
 
   // combine the paths
   struct stat statOut;
@@ -182,7 +183,7 @@ void respondToRequest(int sock,const char *path,enum httpRequest request,struct 
 
   free(realPath);
   
-  respondFileNotFound(responseBody,table,request); 
+  respondFileNotFound(&responseBody,table,request); 
 
   /*if(file == -1 ){
     respondFileNotFound(responseBody,table,request); 

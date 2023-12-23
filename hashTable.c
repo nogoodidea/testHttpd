@@ -112,8 +112,14 @@ char *hashTableGet(struct hashTable *table,char *key){
 
 void hashTableClear(struct hashTable *table){
   for(size_t i=0;i<table->size;i+=1){
-    if(table->table[i].key != NULL){free(table->table[i].key);table->table[i].key = NULL;}
-    if(table->table[i].value != NULL){free(table->table[i].value);table->table[i].value = NULL;}
+    if(table->table[i].key != NULL){
+      free(table->table[i].key);
+      table->table[i].key = NULL;
+    }
+    if(table->table[i].value != NULL){
+      free(table->table[i].value);
+      table->table[i].value = NULL;
+    }
   }
 }
 
