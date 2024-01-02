@@ -26,7 +26,9 @@
 
 char *STATUS = NULL;
 
-const char *replyHeaders[] = ["HOST"];
+//Return Headers
+enum replyHeader {End,Server,Date,Expires,ContentType};
+enum replyHeader replyHeaderList[] = {Date,Server,ContentType,Expires,End};
 
 int getFile(char *path,struct stat *statOut){
   /**************************
@@ -131,7 +133,7 @@ void outputReponse(int sock,char *responseBody,struct hashTable *table,enum http
    *
    **********************/
   switch(request){
-      /*case HEAD:
+     /*case HEAD:
         debug("HEAD");
         break;*/
       case GET:
@@ -152,10 +154,32 @@ int respondFileNotFound(char **responseBody,struct hashTable *table,enum httpReq
     strToHeap("404",&code,3);
     // add error code to http
     hashTableAdd(table,STATUS,code);
-    size_t len = strlen(textHtml404)+1;
+    size_t len = strlen(textHtml404)+1;// for null byte
     (*responseBody) = malloc(len*sizeof(char));
     memcpy( (*responseBody),textHtml404,len*sizeof(char));
     return 1;
+}
+
+void genHeaders(char **headers,struct hashTable *table,enum httpRequest request){
+  size_t i = 0;
+  size_t len = 0;
+  //End,Server,Date,Expires,ContentType
+  while(0==0){
+    switch(replyHeaderList[i]){
+      case Server:
+        break;
+      case Date:
+        break;
+      case Expires:
+        break;
+      case ContentType:
+        break;
+      default: // Catchall should hopefully stop some sort of error somewhere
+        goto loopExit;
+    }
+    i += 1;    
+  }
+  loopExit:;
 }
 
 void respondToRequest(int sock,const char *path,enum httpRequest request,struct hashTable *table){

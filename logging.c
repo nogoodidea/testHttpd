@@ -4,6 +4,24 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
+
+#define TIMEBUFFSIZE 30
+
+void putTime(){
+  /*******************
+   *void putTime()
+   *  print the current local time to stderr
+   *  for debug logs and the like
+   *******************/
+  time_t currTime;
+  char buff[TIMEBUFFSIZE];
+  
+  // time for message
+  time(&currTime);
+  strftime(buff,TIMEBUFFSIZE,"%F %T",localtime(currTime));
+  fputs(buff,stderr);
+}
 
 // ERROR HANDLER
 void error(char *err){
@@ -15,7 +33,8 @@ void error(char *err){
 
 void debug(char *msg){
   if(msg != NULL){
-    fputs("DEBUG:",stderr);
+    putTime();
+    fputs(" DEBUG:",stderr);
     fputs(msg,stderr);
     fputs("\n",stderr);
   }
