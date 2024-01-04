@@ -24,6 +24,8 @@
 // HTTP VERSION
 #define HTTP_VERSION "HTTP/1.1"
 
+//
+#define SERVER_NAME testHttpd0.0
 char *STATUS = NULL;
 
 //Return Headers
@@ -160,13 +162,17 @@ int respondFileNotFound(char **responseBody,struct hashTable *table,enum httpReq
     return 1;
 }
 
-void genHeaders(char **headers,struct hashTable *table,enum httpRequest request){
+void genHeaders(int sock,struct hashTable *table,enum httpRequest request){
   size_t i = 0;
   size_t len = 0;
+  char buff[BUFFER_SIZE];
   //End,Server,Date,Expires,ContentType
   while(0==0){
     switch(replyHeaderList[i]){
       case Server:
+        memcpy(buff,"Server: ",8);
+        buff[7] = '\0';
+        debug(buff);
         break;
       case Date:
         break;
@@ -179,7 +185,7 @@ void genHeaders(char **headers,struct hashTable *table,enum httpRequest request)
     }
     i += 1;    
   }
-  loopExit:;
+loopExit: ; // jump to break loop
 }
 
 void respondToRequest(int sock,const char *path,enum httpRequest request,struct hashTable *table){

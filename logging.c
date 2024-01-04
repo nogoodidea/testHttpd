@@ -19,7 +19,7 @@ void putTime(){
   
   // time for message
   time(&currTime);
-  strftime(buff,TIMEBUFFSIZE,"%F %T",localtime(currTime));
+  strftime(buff,TIMEBUFFSIZE,"%F %T",localtime(&currTime));
   fputs(buff,stderr);
 }
 
