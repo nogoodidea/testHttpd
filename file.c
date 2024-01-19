@@ -25,12 +25,12 @@
 #define HTTP_VERSION "HTTP/1.1"
 
 //
-#define SERVER_NAME testHttpd0.0
-char *STATUS = NULL;
+#define SERVER_NAME "testHttpd0.0"
+char *STATUS;
 
 //Return Headers
-enum replyHeader {End,Server,Date,Expires,ContentType};
-enum replyHeader replyHeaderList[] = {Date,Server,ContentType,Expires,End};
+enum replyHeader {End,Server,Date,ContentType};
+enum replyHeader replyHeaderList[] = {Server,Date,ContentType,End};
 
 int getFile(char *path,struct stat *statOut){
   /**************************
@@ -124,7 +124,68 @@ char *getFileFormat(char *fileName){
   return "application/octet-stream";
 }
 
-void outputReponse(int sock,char *responseBody,struct hashTable *table,enum httpRequest request){
+void genHeaders(int sock,struct stat *statOut,struct hashTable *table,enum httpRequest request){
+  size_t i = 0;
+  size_t headerCount = 0;
+  char buff[BUFFER_SIZE];
+  // START
+  
+  // HTTP VERSION
+  if(i+strlen(HTTP_VERSION) >= BUFFER_SIZE){error("BUFFER OVERFLOW");}
+  memcpy(buff,HTTP_VERSION,strlen(HTTP_VERSION));
+  i+=strlen(HTTP_VERSION);
+
+  if(i+3 >= BUFFER_SIZE){error("BUFFER OVERFLOW");}
+  memcpy(buff,hashTableGet(table,"STATUS"),3);
+  i+=3;
+  
+  //End,Server,Date,Expires,ContentType
+  while(0==0){
+    switch(replyHeaderList[headerCount]){
+      case Server:
+
+        if(i+8 >= BUFFER_SIZE){error("BUFFER OVERFLOW");}
+        memcpy(&(buff[i]),"Server: ",8);
+        i += 8;
+
+        if(i+strlen(SERVER_NAME) >= BUFFER_SIZE){error("BUFFER OVERFLOW");}
+        memcpy(&(buff[i]),SERVER_NAME,strlen(SERVER_NAME));
+        i += strlen(SERVER_NAME);
+
+        if(i+2 >= BUFFER_SIZE){error("BUFFER OVERFLOW");}
+        memcpy(&(buff[i]),"\n\r",2);
+        i += 2;
+        break;
+      case Date:
+        // time of last access
+        if(statOut != NULL){
+          if(i+6 >= BUFFER_SIZE){error("BUFFER OVERFLOW");}
+          memcpy(&(buff[i]),"Date: ",6);
+          i += 6;
+          
+
+          if(i+26 >= BUFFER_SIZE){error("BUFFER OVERFLOW");}
+          ctime_r(&(statOut->st_mtim.tv_sec),&(buff[i]));
+          i += 26;
+        } // just skip it
+      case ContentType:
+        memcpy(&(buff[i]),"ContentType: ",14);
+        i+=14;
+        break;
+      default: // Catchall should hopefully stop some sort of error somewhere
+        goto loopExit;
+    }
+    headerCount += 1;    
+  }
+  loopExit: ; // jump to break loop
+  if(i+2 >= BUFFER_SIZE){error("BUFFER OVERFLOW");}
+  memcpy(&(buff[i]),"\n\r",2);
+  i += 2;
+
+  //buff to sock
+  write(sock,buff,i);
+}
+void outputReponse(int sock,char *responseBody,struct stat *statOut,struct hashTable *table,enum httpRequest request){
   /**********************
    *void respondToRequest(int sock,int fileSocket,enum httpRequest request)
    * responds to a request, the file is known to be valid
@@ -134,10 +195,11 @@ void outputReponse(int sock,char *responseBody,struct hashTable *table,enum http
    *
    *
    **********************/
+  genHeaders(sock,statOut,table,request);
   switch(request){
-     /*case HEAD:
+     case HEAD:
         debug("HEAD");
-        break;*/
+        break;
       case GET:
         debug("GET");
         break;
@@ -162,31 +224,7 @@ int respondFileNotFound(char **responseBody,struct hashTable *table,enum httpReq
     return 1;
 }
 
-void genHeaders(int sock,struct hashTable *table,enum httpRequest request){
-  size_t i = 0;
-  size_t len = 0;
-  char buff[BUFFER_SIZE];
-  //End,Server,Date,Expires,ContentType
-  while(0==0){
-    switch(replyHeaderList[i]){
-      case Server:
-        memcpy(buff,"Server: ",8);
-        buff[7] = '\0';
-        debug(buff);
-        break;
-      case Date:
-        break;
-      case Expires:
-        break;
-      case ContentType:
-        break;
-      default: // Catchall should hopefully stop some sort of error somewhere
-        goto loopExit;
-    }
-    i += 1;    
-  }
-loopExit: ; // jump to break loop
-}
+
 
 void respondToRequest(int sock,const char *path,enum httpRequest request,struct hashTable *table){
   /******************
@@ -198,7 +236,8 @@ void respondToRequest(int sock,const char *path,enum httpRequest request,struct 
    ******************/
 
   // set grobal
-  strToHeap("STATUS",&STATUS,6);
+  STATUS = malloc(7*sizeof(char));
+  strToHeap("STATUS",&STATUS,6); // this should be fine
 
   // combine the paths
   struct stat statOut;
@@ -212,18 +251,20 @@ void respondToRequest(int sock,const char *path,enum httpRequest request,struct 
   int file = getFile(realPath,&statOut);
 
   free(realPath);
-  
-  respondFileNotFound(&responseBody,table,request); 
 
-  /*if(file == -1 ){
-    respondFileNotFound(responseBody,table,request); 
+  if(file == -1 ){
+    debug("FILE NOT FOUND");
+    respondFileNotFound(&responseBody,table,request); 
   }if(file == -2){
-    respondDir(responseBody,table);
+    debug("DIR");
+    //respondDir(&responseBody,table);
   }else{
-    respondFile(responseBody,table,file);
-  }*/
+    debug("FILE");
+    //respondFile(&responseBody,table,file);
+  }
   
-  outputReponse(sock,responseBody,table,request);
+  outputReponse(sock,responseBody,&statOut,table,request);
+
   free(responseBody);
 }
 

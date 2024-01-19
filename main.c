@@ -163,8 +163,6 @@ void listenSocketLoop(int sockListen,const char *path){
   socklen_t clientAddrLen = sizeof(clientAddr);
   pid_t pid;
 
-  debug(path);
-
   while(1){
     newSock = accept(sockListen,(struct sockaddr*) &clientAddr,&clientAddrLen);
     if(newSock ==-1){
@@ -195,21 +193,14 @@ int main(int argc,char **argv){
   char *path = NULL;
 
   //CHROOT
-  if (argc > 2){
-    path = argv[2];
-  }else{
-    debug("NO CHROOT PATH USING CURRENT PATH");
-    path = getcwd(NULL,0);
-  }
+  path = (argc > 2)?argv[2]:getcwd(NULL,0);
   
   const char *pathConst = path;
 
   //PORT
-  if (argc > 1){
-  	port = htonl(atoi(argv[1]));
-  }else {
-	  port = 8000;
-  }
+  port = (argc > 1)? htonl(atoi(argv[1])):8000;
+  
+  printf("port: %i",port);
 
   //CHROOT
   debug(path);
