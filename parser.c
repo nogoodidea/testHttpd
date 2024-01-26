@@ -115,7 +115,7 @@ char percentDecode(char *code){
   return '\0';
 }
 
-void parseFirstline(char buff[BUFFER_SIZE],ssize_t buffSize,char **path,enum httpRequest *request){
+void parseFirstline(char buff[BUFFER_SIZE],size_t buffSize,char **path,enum httpRequest *request){
   /*****************
    * parses the first line, sets request and returns the path
    *

@@ -88,7 +88,7 @@ void handleConnection(int sock,const char *path){
   // loops over request copys line from main buffer to line buf 
   //
   char buf[BUFFER_SIZE];
-  ssize_t bufLen = BUFFER_SIZE; // can't be started at zero
+  size_t bufLen = BUFFER_SIZE; // can't be started at zero
   struct hashTable *table = hashTableMk(20,headerHashFunc);
   int headerStatus = 1;
   
@@ -109,8 +109,6 @@ void handleConnection(int sock,const char *path){
 
   bufLen = BUFFER_SIZE;
 
-  hashTablePrint(table);
-  
   // RESPOND
   respondToRequest(sock,path,request,table);
 

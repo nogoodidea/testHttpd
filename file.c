@@ -11,6 +11,7 @@
 #include <fcntl.h>
 
 #include <string.h>
+#include <stdbool.h>
 
 // BUFFER SIZE
 #include "parser.h"
@@ -22,15 +23,19 @@
 #include "text.h"
 
 // HTTP VERSION
-#define HTTP_VERSION "HTTP/1.1"
+#define HTTP_VERSION "HTTP/1.1 "
 
 //
 #define SERVER_NAME "testHttpd0.0"
-char *STATUS;
+
+struct httpReply {
+  int statusCode;
+  size_t contentSize;
+};
 
 //Return Headers
-enum replyHeader {End,Server,Date,ContentType};
-enum replyHeader replyHeaderList[] = {Server,Date,ContentType,End};
+enum replyHeader {End,Server,Date,ContentType,ContentLength};
+enum replyHeader replyHeaderList[] = {Server,Date,ContentType,ContentLength,End};
 
 int getFile(char *path,struct stat *statOut){
   /**************************
@@ -57,7 +62,7 @@ int getFile(char *path,struct stat *statOut){
  return -1;
 }
 
-char *getFileFormat(char *fileName){
+void getFileFormat(char *fileName,char *buff){
   /***********************
    *char *getFileFormat(char *fileName)
    * char *fileName - the path of the file
@@ -83,109 +88,129 @@ char *getFileFormat(char *fileName){
   // now we got the end, do something with it
   //BASIC
   if(strcmp(".txt",&(fileName[dot]))){
-    return "text/plain";
+    strcpy(buff,"text/plain");
+    return;
   }
   if(strcmp(".css",&(fileName[dot]))){
-    return "text/css";
+    strcpy(buff,"text/css");
+    return;
   }
   if(strcmp(".html",&(fileName[dot]))){
-    return "text/html";
+    strcpy(buff,"text/html");
+    return;
   }
   if(strcmp(".htm",&(fileName[dot]))){
-    return "text/html";
+    strcpy(buff,"text/html");
+    return;
   }
   if(strcmp(".js",&(fileName[dot]))){
-    return "text/javascript";
+    strcpy(buff,"text/javascript");
+    return;
   }
   if(strcmp(".md",&(fileName[dot]))){
-    return "text/markdown";
+    strcpy(buff,"text/markdown");
+    return;
   }
   //IMAGES
   if(strcmp(".apng",&(fileName[dot]))){
-    return "image/apng";
+    strcpy(buff,"image/apng");
+    return;
   }
   if(strcmp(".avif",&(fileName[dot]))){
-    return "image/avif";
+    strcpy(buff,"image/avif");
+    return;
   }
   if(strcmp(".gif",&(fileName[dot]))){
-    return "image/gif";
+    strcpy(buff,"image/gif");
+    return;
   }
   if(strcmp(".png",&(fileName[dot]))){
-    return "image/png";
+    strcpy(buff,"image/png");
+    return;
   }
   if(strcmp(".svg",&(fileName[dot]))){
-    return "image/svg+xml";
+    strcpy(buff,"image/svg+xml");
+    return;
   }
   if(strcmp(".webp",&(fileName[dot]))){
-    return "image/webp";
+    strcpy(buff,"image/webp");
+    return;
   }
 
   // we got to the end say fuck it
-  return "application/octet-stream";
+  strcpy(buff,"application/octet-stream");
 }
 
-void genHeaders(int sock,struct stat *statOut,struct hashTable *table,enum httpRequest request){
+bool bufferAdd(size_t *i,char *buff,char *str,size_t len){
+  if(*i+len >= BUFFER_SIZE){error("BUFFER OVERFLOW");return true;}
+  memcpy(&(buff[*i]),str,len);
+  *i += len;
+  return false;
+}
+
+void genHeaders(int sock,char *path,struct stat *statOut,struct httpReply httpInfo,struct hashTable *table,enum httpRequest request){
   size_t i = 0;
   size_t headerCount = 0;
+  size_t len = 0;
   char buff[BUFFER_SIZE];
+  char contentTypeBuff[64];
+  printf("\nbuff:%p\n",buff);
   // START
   
   // HTTP VERSION
-  if(i+strlen(HTTP_VERSION) >= BUFFER_SIZE){error("BUFFER OVERFLOW");}
-  memcpy(buff,HTTP_VERSION,strlen(HTTP_VERSION));
-  i+=strlen(HTTP_VERSION);
+  bufferAdd(&i,buff,HTTP_VERSION,strlen(HTTP_VERSION));
 
+  //edge case
   if(i+3 >= BUFFER_SIZE){error("BUFFER OVERFLOW");}
-  memcpy(buff,hashTableGet(table,"STATUS"),3);
+  sprintf(&(buff[i]),"%i",httpInfo.statusCode);
   i+=3;
-  
+
+  bufferAdd(&i,buff,"\n\r",2);
+
   //End,Server,Date,Expires,ContentType
-  while(0==0){
+  while(replyHeaderList[headerCount] != End){
     switch(replyHeaderList[headerCount]){
       case Server:
-
-        if(i+8 >= BUFFER_SIZE){error("BUFFER OVERFLOW");}
-        memcpy(&(buff[i]),"Server: ",8);
-        i += 8;
-
-        if(i+strlen(SERVER_NAME) >= BUFFER_SIZE){error("BUFFER OVERFLOW");}
-        memcpy(&(buff[i]),SERVER_NAME,strlen(SERVER_NAME));
-        i += strlen(SERVER_NAME);
-
-        if(i+2 >= BUFFER_SIZE){error("BUFFER OVERFLOW");}
-        memcpy(&(buff[i]),"\n\r",2);
-        i += 2;
+        bufferAdd(&i,buff,"Server: ",8);
+        bufferAdd(&i,buff,SERVER_NAME,strlen(SERVER_NAME));
+        bufferAdd(&i,buff,"\n\r",2);
         break;
       case Date:
         // time of last access
         if(statOut != NULL){
-          if(i+6 >= BUFFER_SIZE){error("BUFFER OVERFLOW");}
-          memcpy(&(buff[i]),"Date: ",6);
-          i += 6;
+          bufferAdd(&i,buff,"Date: ",6);
           
-
+          //edge case
           if(i+26 >= BUFFER_SIZE){error("BUFFER OVERFLOW");}
           ctime_r(&(statOut->st_mtim.tv_sec),&(buff[i]));
           i += 26;
+          bufferAdd(&i,buff,"\n\r",2);
         } // just skip it
-      case ContentType:
-        memcpy(&(buff[i]),"ContentType: ",14);
-        i+=14;
         break;
-      default: // Catchall should hopefully stop some sort of error somewhere
-        goto loopExit;
+      case ContentType:
+        bufferAdd(&i,buff,"Content-Type: ",15);
+        getFileFormat(path,contentTypeBuff);
+        len = strlen(contentTypeBuff);
+        bufferAdd(&i,buff,contentTypeBuff,len);
+        bufferAdd(&i,buff,"\n\r",2);
+
+        break;        
+      case ContentLength:
+        bufferAdd(&i,buff,"Content-Length: ",17);
+        sprintf(contentTypeBuff,"%lu",httpInfo.contentSize);
+        len = strlen(contentTypeBuff);
+        bufferAdd(&i,buff,contentTypeBuff,len);
+        bufferAdd(&i,buff,"\n\r",2);
+        break;
     }
     headerCount += 1;    
   }
-  loopExit: ; // jump to break loop
-  if(i+2 >= BUFFER_SIZE){error("BUFFER OVERFLOW");}
-  memcpy(&(buff[i]),"\n\r",2);
-  i += 2;
+  bufferAdd(&i,buff,"\n\r",2);
 
   //buff to sock
   write(sock,buff,i);
 }
-void outputReponse(int sock,char *responseBody,struct stat *statOut,struct hashTable *table,enum httpRequest request){
+void outputReponse(int sock,char *responseBody,char *path,struct stat *statOut,struct httpReply httpInfo,struct hashTable *table,enum httpRequest request){
   /**********************
    *void respondToRequest(int sock,int fileSocket,enum httpRequest request)
    * responds to a request, the file is known to be valid
@@ -195,7 +220,7 @@ void outputReponse(int sock,char *responseBody,struct stat *statOut,struct hashT
    *
    *
    **********************/
-  genHeaders(sock,statOut,table,request);
+  genHeaders(sock,path,statOut,httpInfo,table,request);
   switch(request){
      case HEAD:
         debug("HEAD");
@@ -213,14 +238,13 @@ void outputReponse(int sock,char *responseBody,struct stat *statOut,struct hashT
   }
 }
 
-int respondFileNotFound(char **responseBody,struct hashTable *table,enum httpRequest request){
-    char *code;
-    strToHeap("404",&code,3);
+int respondFileNotFound(char **responseBody,struct httpReply *httpInfo,struct hashTable *table,enum httpRequest request){
     // add error code to http
-    hashTableAdd(table,STATUS,code);
     size_t len = strlen(textHtml404)+1;// for null byte
     (*responseBody) = malloc(len*sizeof(char));
     memcpy( (*responseBody),textHtml404,len*sizeof(char));
+    httpInfo->statusCode = 404;
+    httpInfo->contentSize = len;
     return 1;
 }
 
@@ -235,10 +259,6 @@ void respondToRequest(int sock,const char *path,enum httpRequest request,struct 
    *  struct harshTable *table
    ******************/
 
-  // set grobal
-  STATUS = malloc(7*sizeof(char));
-  strToHeap("STATUS",&STATUS,6); // this should be fine
-
   // combine the paths
   struct stat statOut;
 
@@ -250,11 +270,12 @@ void respondToRequest(int sock,const char *path,enum httpRequest request,struct 
   strcat(realPath,requestPath);
   int file = getFile(realPath,&statOut);
 
-  free(realPath);
+  struct httpReply httpInfo;
+
 
   if(file == -1 ){
     debug("FILE NOT FOUND");
-    respondFileNotFound(&responseBody,table,request); 
+    respondFileNotFound(&responseBody,&httpInfo,table,request); 
   }if(file == -2){
     debug("DIR");
     //respondDir(&responseBody,table);
@@ -263,8 +284,9 @@ void respondToRequest(int sock,const char *path,enum httpRequest request,struct 
     //respondFile(&responseBody,table,file);
   }
   
-  outputReponse(sock,responseBody,&statOut,table,request);
+  outputReponse(sock,responseBody,realPath,&statOut,httpInfo,table,request);
 
+  free(realPath);
   free(responseBody);
 }
 
