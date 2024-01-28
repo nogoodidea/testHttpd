@@ -25,17 +25,21 @@
 // HTTP VERSION
 #define HTTP_VERSION "HTTP/1.1 "
 
-//
+// sever name
 #define SERVER_NAME "testHttpd0.0"
 
 struct httpReply {
   int statusCode;
+  char *statusText;
+  size_t statusTextLen;
+  char * contentType;
+  size_t contentTypeLen;
   size_t contentSize;
 };
 
 //Return Headers
-enum replyHeader {End,Server,Date,ContentType,ContentLength};
-enum replyHeader replyHeaderList[] = {Server,Date,ContentType,ContentLength,End};
+enum replyHeader {End,Server,ContentType,ContentLength,Date};
+const enum replyHeader replyHeaderList[] = {Server,ContentType,ContentLength,Date,End};
 
 int getFile(char *path,struct stat *statOut){
   /**************************
@@ -60,6 +64,20 @@ int getFile(char *path,struct stat *statOut){
   }
  debug("FILE DOES NOT EXIST");
  return -1;
+}
+
+void intHttpReply(struct httpReply *httpStatus){
+  /***************
+   *  void intHttpReply(struct httpReply *httpStatus)
+   *    struct httpReply the struct to int
+   *    sets default values for the httpReply struct
+   ***************/
+  httpStatus->statusCode = 500;
+  httpStatus->statusText = NULL;
+  httpStatus->statusTextLen = 0;
+  httpStatus->contentType = NULL;
+  httpStatus->contentTypeLen = 0;
+  httpStatus->contentSize = 0;
 }
 
 void getFileFormat(char *fileName,char *buff){
@@ -149,11 +167,19 @@ bool bufferAdd(size_t *i,char *buff,char *str,size_t len){
 }
 
 void genHeaders(int sock,char *path,struct stat *statOut,struct httpReply httpInfo,struct hashTable *table,enum httpRequest request){
+  /********************
+   *
+   *
+   * Generates headers for transmission
+   *
+   *
+   *
+   ********************/
   size_t i = 0;
   size_t headerCount = 0;
   size_t len = 0;
   char buff[BUFFER_SIZE];
-  char contentTypeBuff[64];
+  char tempBuff[64];
   printf("\nbuff:%p\n",buff);
   // START
   
@@ -161,11 +187,12 @@ void genHeaders(int sock,char *path,struct stat *statOut,struct httpReply httpIn
   bufferAdd(&i,buff,HTTP_VERSION,strlen(HTTP_VERSION));
 
   //edge case
-  if(i+3 >= BUFFER_SIZE){error("BUFFER OVERFLOW");}
-  sprintf(&(buff[i]),"%i",httpInfo.statusCode);
-  i+=3;
+  sprintf(tempBuff,"%i",httpInfo.statusCode);
+  bufferAdd(&i,buff,tempBuff,3);
+  bufferAdd(&i,buff," ",1);
+  bufferAdd(&i,buff,httpInfo.statusText,httpInfo.statusTextLen);
 
-  bufferAdd(&i,buff,"\n\r",2);
+  bufferAdd(&i,buff,"\r\n",2);
 
   //End,Server,Date,Expires,ContentType
   while(replyHeaderList[headerCount] != End){
@@ -173,36 +200,34 @@ void genHeaders(int sock,char *path,struct stat *statOut,struct httpReply httpIn
       case Server:
         bufferAdd(&i,buff,"Server: ",8);
         bufferAdd(&i,buff,SERVER_NAME,strlen(SERVER_NAME));
-        bufferAdd(&i,buff,"\n\r",2);
         break;
       case Date:
-        // time of last access
-        if(statOut != NULL){
           bufferAdd(&i,buff,"Date: ",6);
-          
-          //edge case
-          if(i+26 >= BUFFER_SIZE){error("BUFFER OVERFLOW");}
-          ctime_r(&(statOut->st_mtim.tv_sec),&(buff[i]));
-          i += 26;
-          bufferAdd(&i,buff,"\n\r",2);
-        } // just skip it
-        break;
+          time_t date = time(NULL);
+          strftime(tempBuff,64,"%a, %d %b %Y %h:%m:%s GMT",gmtime(&date));
+          bufferAdd(&i,buff,tempBuff,26);
+          break;
       case ContentType:
-        bufferAdd(&i,buff,"Content-Type: ",15);
-        getFileFormat(path,contentTypeBuff);
-        len = strlen(contentTypeBuff);
-        bufferAdd(&i,buff,contentTypeBuff,len);
-        bufferAdd(&i,buff,"\n\r",2);
-
+        bufferAdd(&i,buff,"Content-Type: ",14);
+        // if you don't know guess
+        if(httpInfo.contentType == NULL){
+          getFileFormat(path,tempBuff);
+          len = strlen(tempBuff);
+          bufferAdd(&i,buff,tempBuff,len);
+        }else{
+          bufferAdd(&i,buff,httpInfo.contentType,httpInfo.contentTypeLen);
+        }
         break;        
       case ContentLength:
-        bufferAdd(&i,buff,"Content-Length: ",17);
-        sprintf(contentTypeBuff,"%lu",httpInfo.contentSize);
-        len = strlen(contentTypeBuff);
-        bufferAdd(&i,buff,contentTypeBuff,len);
-        bufferAdd(&i,buff,"\n\r",2);
+        bufferAdd(&i,buff,"Content-Length: ",16);
+        sprintf(tempBuff,"%lu",httpInfo.contentSize);
+        len = strlen(tempBuff);
+        bufferAdd(&i,buff,tempBuff,len);
         break;
+      default:
+        error("ERROR IN HEADER PARSER");
     }
+    bufferAdd(&i,buff,"\n\r",2);
     headerCount += 1;    
   }
   bufferAdd(&i,buff,"\n\r",2);
@@ -227,9 +252,11 @@ void outputReponse(int sock,char *responseBody,char *path,struct stat *statOut,s
         break;
       case GET:
         debug("GET");
+        write(sock,responseBody,httpInfo.contentSize);
         break;
       case POST:
         debug("POST");
+        write(sock,responseBody,httpInfo.contentSize);
         break;
       case ERROR:
         error("SERVER ERROR");
@@ -240,10 +267,14 @@ void outputReponse(int sock,char *responseBody,char *path,struct stat *statOut,s
 
 int respondFileNotFound(char **responseBody,struct httpReply *httpInfo,struct hashTable *table,enum httpRequest request){
     // add error code to http
-    size_t len = strlen(textHtml404)+1;// for null byte
-    (*responseBody) = malloc(len*sizeof(char));
+    size_t len = strlen(textHtml404);// for null byte
+    (*responseBody) = malloc(len*sizeof(char)+1);
     memcpy( (*responseBody),textHtml404,len*sizeof(char));
     httpInfo->statusCode = 404;
+    httpInfo->statusText = "Page Not Found";
+    httpInfo->statusTextLen =14;
+    httpInfo->contentType = "text/html";
+    httpInfo->contentTypeLen = 9;
     httpInfo->contentSize = len;
     return 1;
 }
@@ -271,7 +302,10 @@ void respondToRequest(int sock,const char *path,enum httpRequest request,struct 
   int file = getFile(realPath,&statOut);
 
   struct httpReply httpInfo;
+  intHttpReply(&httpInfo);
 
+
+  respondFileNotFound(&responseBody,&httpInfo,table,request); 
 
   if(file == -1 ){
     debug("FILE NOT FOUND");
