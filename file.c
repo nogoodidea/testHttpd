@@ -35,6 +35,8 @@ struct httpReply {
   char * contentType;
   size_t contentTypeLen;
   size_t contentSize;
+  //for chunked tranpher of data
+  bool chukedEncoding;
 };
 
 //Return Headers
@@ -78,6 +80,7 @@ void intHttpReply(struct httpReply *httpStatus){
   httpStatus->contentType = NULL;
   httpStatus->contentTypeLen = 0;
   httpStatus->contentSize = 0;
+  httpStatus->chukedEncoding = false;
 }
 
 void getFileFormat(char *fileName,char *buff){
@@ -166,7 +169,7 @@ bool bufferAdd(size_t *i,char *buff,char *str,size_t len){
   return false;
 }
 
-void genHeaders(int sock,char *path,struct stat *statOut,struct httpReply httpInfo,struct hashTable *table,enum httpRequest request){
+void sendHeaders(int sock,char *path,struct stat *statOut,struct httpReply httpInfo,struct hashTable *table,enum httpRequest request){
   /********************
    *
    *
@@ -219,23 +222,50 @@ void genHeaders(int sock,char *path,struct stat *statOut,struct httpReply httpIn
         }
         break;        
       case ContentLength:
-        bufferAdd(&i,buff,"Content-Length: ",16);
-        sprintf(tempBuff,"%lu",httpInfo.contentSize);
-        len = strlen(tempBuff);
-        bufferAdd(&i,buff,tempBuff,len);
+        if(!httpInfo.chukedEncoding){
+          bufferAdd(&i,buff,"Content-Length: ",16);
+          sprintf(tempBuff,"%lu",httpInfo.contentSize);
+          len = strlen(tempBuff);
+          bufferAdd(&i,buff,tempBuff,len);
+        }// checked Encoding makes me want to shoot myself
+        else{
+        bufferAdd(&i,buff,"Transfer-Encoding: chunked",26);
+        }
         break;
       default:
         error("ERROR IN HEADER PARSER");
     }
-    bufferAdd(&i,buff,"\n\r",2);
+    bufferAdd(&i,buff,"\r\n",2);
     headerCount += 1;    
   }
-  bufferAdd(&i,buff,"\n\r",2);
+  bufferAdd(&i,buff,"\r\n",2);
 
   //buff to sock
   write(sock,buff,i);
 }
-void outputReponse(int sock,char *responseBody,char *path,struct stat *statOut,struct httpReply httpInfo,struct hashTable *table,enum httpRequest request){
+
+void sendBody(int sock,char responceBody[BUFFER_SIZE],struct httpReply httpInfo,int file){
+  /***************
+   *
+   ***************/
+  char buff[64];
+  if(httpInfo.chukedEncoding){
+    while(true){
+      sprintf(buff,"%lx",httpInfo.contentSize);
+      debug(buff);
+      write(sock,buff,strlen(buff));
+      write(sock,"\r\n",2);
+      write(sock,responceBody,httpInfo.contentSize);
+      write(sock,"\r\n",2);
+      if(httpInfo.contentSize == 0){break;}
+      httpInfo.contentSize = read(file,responceBody,BUFFER_SIZE);
+    }
+  }else{
+    write(sock,responceBody,httpInfo.contentSize);
+  }
+}
+
+void sendResponse(int sock,char responseBody[BUFFER_SIZE],char *path,struct stat *statOut,struct httpReply httpInfo,struct hashTable *table,enum httpRequest request,int file){
   /**********************
    *void respondToRequest(int sock,int fileSocket,enum httpRequest request)
    * responds to a request, the file is known to be valid
@@ -245,40 +275,43 @@ void outputReponse(int sock,char *responseBody,char *path,struct stat *statOut,s
    *
    *
    **********************/
-  genHeaders(sock,path,statOut,httpInfo,table,request);
+  sendHeaders(sock,path,statOut,httpInfo,table,request);
   switch(request){
      case HEAD:
-        debug("HEAD");
         break;
       case GET:
-        debug("GET");
-        write(sock,responseBody,httpInfo.contentSize);
-        break;
       case POST:
-        debug("POST");
-        write(sock,responseBody,httpInfo.contentSize);
+        sendBody(sock,responseBody,httpInfo,file);
         break;
       case ERROR:
         error("SERVER ERROR");
       default:
-        debug("Unsuported method");
+      error("Unseported Method");
   }
 }
 
-int respondFileNotFound(char **responseBody,struct httpReply *httpInfo,struct hashTable *table,enum httpRequest request){
+void respondFileNotFound(char *responseBody,struct httpReply *httpInfo){
     // add error code to http
     size_t len = strlen(textHtml404);// for null byte
-    (*responseBody) = malloc(len*sizeof(char)+1);
-    memcpy( (*responseBody),textHtml404,len*sizeof(char));
+    memcpy( responseBody,textHtml404,len*sizeof(char));
     httpInfo->statusCode = 404;
     httpInfo->statusText = "Page Not Found";
     httpInfo->statusTextLen =14;
     httpInfo->contentType = "text/html";
     httpInfo->contentTypeLen = 9;
     httpInfo->contentSize = len;
-    return 1;
 }
 
+void respondFile(char *responseBody,struct httpReply *httpInfo,struct stat fileStat,int file){
+  httpInfo->statusCode = 200;
+  httpInfo->statusText = "OK";
+  httpInfo->statusTextLen=2;
+  // chuncked data transpher
+  if(fileStat.st_size > BUFFER_SIZE){
+    httpInfo->chukedEncoding = true;
+  }
+  httpInfo->contentSize=read(file,responseBody,BUFFER_SIZE);
+}
 
 
 void respondToRequest(int sock,const char *path,enum httpRequest request,struct hashTable *table){
@@ -293,7 +326,7 @@ void respondToRequest(int sock,const char *path,enum httpRequest request,struct 
   // combine the paths
   struct stat statOut;
 
-  char *responseBody = NULL;
+  char responseBody[BUFFER_SIZE];
   
   char *requestPath = hashTableGet(table,"PATH");
   char *realPath = malloc(sizeof(char)*(strlen(path)+strlen(requestPath)+1));
@@ -305,23 +338,22 @@ void respondToRequest(int sock,const char *path,enum httpRequest request,struct 
   intHttpReply(&httpInfo);
 
 
-  respondFileNotFound(&responseBody,&httpInfo,table,request); 
-
   if(file == -1 ){
     debug("FILE NOT FOUND");
-    respondFileNotFound(&responseBody,&httpInfo,table,request); 
-  }if(file == -2){
-    debug("DIR");
-    //respondDir(&responseBody,table);
+    respondFileNotFound(responseBody,&httpInfo); 
   }else{
-    debug("FILE");
-    //respondFile(&responseBody,table,file);
+    if(file == -2){
+      debug("DIR");
+      //respondDir(&responseBody,&httpInfo,file);
+    }else{
+      debug("FILE");
+      respondFile(responseBody,&httpInfo,statOut,file);
+    }
   }
   
-  outputReponse(sock,responseBody,realPath,&statOut,httpInfo,table,request);
+  sendResponse(sock,responseBody,realPath,&statOut,httpInfo,table,request,file);
 
   free(realPath);
-  free(responseBody);
 }
 
 

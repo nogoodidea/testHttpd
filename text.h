@@ -4,7 +4,8 @@ const char *textHtml404 = "<!DOCTYPE>\n"
 "    <title>404</title>\n"
 "  </head>\n"
 "  <body>\n"
-"    <h1>File not found</h1>\n"
+"    <h2>Error: File not found</h2>\n"
+"    <a> File not found </a>\n"
 "  </body>\n"
 "</html>";
 
