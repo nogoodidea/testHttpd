@@ -261,11 +261,11 @@ int parseHeaders(char buff[BUFFER_SIZE],ssize_t buffSize,struct hashTable *table
       if(0<total){
         if((status&FIRSTLINE)==FIRSTLINE){
           status &= ~(FIRSTLINE);
-          char *path;
-          strToHeap("PATH",&path,4);
-          hashTableAdd(table,path,key);
+          hashTableAdd(table,"PATH",key);
         }else{
           hashTableAdd(table,key,value);
+          free(value);
+          free(key);
         }
       }else{
         // got 2 newlines after each other

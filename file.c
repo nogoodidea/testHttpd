@@ -169,7 +169,7 @@ bool bufferAdd(size_t *i,char *buff,char *str,size_t len){
   return false;
 }
 
-void sendHeaders(int sock,char *path,struct stat *statOut,struct httpReply httpInfo,struct hashTable *table,enum httpRequest request){
+void sendHeaders(int sock,struct httpReply httpInfo){
   /********************
    *
    *
@@ -214,9 +214,7 @@ void sendHeaders(int sock,char *path,struct stat *statOut,struct httpReply httpI
         bufferAdd(&i,buff,"Content-Type: ",14);
         // if you don't know guess
         if(httpInfo.contentType == NULL){
-          getFileFormat(path,tempBuff);
-          len = strlen(tempBuff);
-          bufferAdd(&i,buff,tempBuff,len);
+          bufferAdd(&i,buff,"application/octet-stream",24);
         }else{
           bufferAdd(&i,buff,httpInfo.contentType,httpInfo.contentTypeLen);
         }
@@ -275,7 +273,7 @@ void sendResponse(int sock,char responseBody[BUFFER_SIZE],char *path,struct stat
    *
    *
    **********************/
-  sendHeaders(sock,path,statOut,httpInfo,table,request);
+  sendHeaders(sock,httpInfo);
   switch(request){
      case HEAD:
         break;
@@ -302,7 +300,12 @@ void respondFileNotFound(char *responseBody,struct httpReply *httpInfo){
     httpInfo->contentSize = len;
 }
 
-void respondFile(char *responseBody,struct httpReply *httpInfo,struct stat fileStat,int file){
+void respondFile(char *responseBody,struct httpReply *httpInfo,struct stat fileStat,char *path,int file){
+  char buff[64];
+  getFileFormat(path,buff);
+  size_t len = strlen(buff);
+
+
   httpInfo->statusCode = 200;
   httpInfo->statusText = "OK";
   httpInfo->statusTextLen=2;
@@ -311,6 +314,15 @@ void respondFile(char *responseBody,struct httpReply *httpInfo,struct stat fileS
     httpInfo->chukedEncoding = true;
   }
   httpInfo->contentSize=read(file,responseBody,BUFFER_SIZE);
+  // contentTypeLen
+  httpInfo->contentType = malloc(len*sizeof(char)+1);
+  strcpy(httpInfo->contentType,buff);
+  httpInfo->contentTypeLen = len;
+}
+
+void respondDir(char (*responseBody)[BUFFER_SIZE],struct httpReply *httpInfo,int file){
+  // it should work    
+
 }
 
 
@@ -327,11 +339,17 @@ void respondToRequest(int sock,const char *path,enum httpRequest request,struct 
   struct stat statOut;
 
   char responseBody[BUFFER_SIZE];
+
+  char *realPath = NULL;
+  char *requestPath = NULL;
   
-  char *requestPath = hashTableGet(table,"PATH");
-  char *realPath = malloc(sizeof(char)*(strlen(path)+strlen(requestPath)+1));
-  strcpy(realPath,path);
-  strcat(realPath,requestPath);
+  if(hashTableHas(table,"PATH")==true){
+    requestPath = hashTableGet(table,"PATH");
+    realPath = malloc(sizeof(char)*(strlen(path)+strlen(requestPath)+1));
+    strcpy(realPath,path);
+    strcat(realPath,requestPath);
+  }
+    
   int file = getFile(realPath,&statOut);
 
   struct httpReply httpInfo;
@@ -344,10 +362,10 @@ void respondToRequest(int sock,const char *path,enum httpRequest request,struct 
   }else{
     if(file == -2){
       debug("DIR");
-      //respondDir(&responseBody,&httpInfo,file);
+      respondDir(&responseBody,&httpInfo,file);
     }else{
       debug("FILE");
-      respondFile(responseBody,&httpInfo,statOut,file);
+      respondFile(responseBody,&httpInfo,statOut,requestPath,file);
     }
   }
   

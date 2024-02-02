@@ -1,8 +1,8 @@
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 #include "logging.h"
 
-#include <stdio.h>
 
 struct hashTableEntry{
   char *key;
@@ -43,8 +43,10 @@ struct hashTable *hashTableMk(size_t size,size_t (*hashFunc)()){
 void hashTableInsert(struct hashTable *table,char *key,char *value,size_t index){
   for(size_t i =0;i<table->size;i+=1){
     if(table->table[index].key == NULL){
-      table->table[index].key = key;
-      table->table[index].value = value;
+      table->table[index].key = malloc(sizeof(char)*(strlen(key)+1));
+      strcpy(table->table[index].key,key);
+      table->table[index].value = malloc(sizeof(char)*(strlen(value)+1));
+      strcpy(table->table[index].value,value);
       table->used +=1;
       return;
     }
@@ -109,6 +111,21 @@ char *hashTableGet(struct hashTable *table,char *key){
   return NULL;
 }
 
+bool hashTableHas(struct hashTable *table,char *key){
+  /******************
+   *bool hashTableHas(struct hashTable *table,char *key)
+   *  checks if the hashtable has a value
+   ******************/
+  size_t index = (table->hashFunc)(key);
+  index %= table->size;
+  for(size_t i=0;i<table->size;i+=1){ 
+    if(table->table[index].key != NULL && (0==strcmp(table->table[index].key,key)) ){
+      return true;
+    }
+   index = (index+1)% table->size;
+  } 
+  return false;
+}
 
 void hashTableClear(struct hashTable *table){
   for(size_t i=0;i<table->size;i+=1){

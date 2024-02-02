@@ -1,6 +1,9 @@
 #ifndef HASH_TABLE_H
 #define HASH_TABLE_H
 
+#include<stdlib.h>
+#include<stdbool.h>
+
 struct hashTableEntry{
   char *key;
   char *value;
@@ -18,6 +21,7 @@ void hashTableInsert(struct hashTable *table,char *key,char *value,size_t index)
 void hashTableReHash(struct hashTable *table,size_t newSize);
 void hashTableAdd(struct hashTable *table,char *key,char *value);
 char *hashTableGet(struct hashTable *table,char *key);
+bool hashTableHas(struct hashTable *table,char *key);
 void hashTableClear(struct hashTable *table);
 void hashTableFree(struct hashTable **table);
 void hashTablePrint(struct hashTable *table);

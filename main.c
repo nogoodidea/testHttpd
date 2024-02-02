@@ -95,7 +95,7 @@ void handleConnection(int sock,const char *path){
   enum httpRequest request;
 
   while(bufLen == BUFFER_SIZE){
-    bufLen = recv(sock,buf,BUFFER_SIZE,MSG_DONTWAIT);
+    bufLen = recv(sock,buf,BUFFER_SIZE/*,MSG_DONTWAIT*/,0);
     if(bufLen == -1){//error handler
       socketError(); 
       break;
