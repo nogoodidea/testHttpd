@@ -159,7 +159,6 @@ void parseFirstline(char buff[BUFFER_SIZE],size_t buffSize,char **path,enum http
           break;
         default:
           lineBuff[o] = buff[i];
-          debugChar(lineBuff[o]);
           o+=1;
           break;
        }

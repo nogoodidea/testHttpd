@@ -183,14 +183,13 @@ void sendHeaders(int sock,struct httpReply httpInfo){
   size_t len = 0;
   char buff[BUFFER_SIZE];
   char tempBuff[64];
-  printf("\nbuff:%p\n",buff);
   // START
   
   // HTTP VERSION
   bufferAdd(&i,buff,HTTP_VERSION,strlen(HTTP_VERSION));
 
   //edge case
-  sprintf(tempBuff,"%i",httpInfo.statusCode);
+  snprintf(tempBuff,64,"%i",httpInfo.statusCode);
   bufferAdd(&i,buff,tempBuff,3);
   bufferAdd(&i,buff," ",1);
   bufferAdd(&i,buff,httpInfo.statusText,httpInfo.statusTextLen);
@@ -222,7 +221,7 @@ void sendHeaders(int sock,struct httpReply httpInfo){
       case ContentLength:
         if(!httpInfo.chukedEncoding){
           bufferAdd(&i,buff,"Content-Length: ",16);
-          sprintf(tempBuff,"%lu",httpInfo.contentSize);
+          snprintf(tempBuff,64,"%lu",httpInfo.contentSize);
           len = strlen(tempBuff);
           bufferAdd(&i,buff,tempBuff,len);
         }// checked Encoding makes me want to shoot myself
@@ -247,11 +246,11 @@ void sendBody(int sock,char responceBody[BUFFER_SIZE],struct httpReply httpInfo,
    *
    ***************/
   char buff[64];
+  int len;
   if(httpInfo.chukedEncoding){
     while(true){
-      sprintf(buff,"%lx",httpInfo.contentSize);
-      debug(buff);
-      write(sock,buff,strlen(buff));
+      snprintf(buff,64,"%lx%n",httpInfo.contentSize,&len); //printf %n go buff
+      write(sock,buff,len);
       write(sock,"\r\n",2);
       write(sock,responceBody,httpInfo.contentSize);
       write(sock,"\r\n",2);
