@@ -1,4 +1,4 @@
-const char *textHtml404 = "<!DOCTYPE>\n"
+char *textHtml404 = "<!DOCTYPE>\n"
 "<html>\n"
 "  <head>\n"
 "    <title>404</title>\n"
@@ -11,21 +11,21 @@ const char *textHtml404 = "<!DOCTYPE>\n"
 
 //// text dir
 
-const char *textDirHeader1 = "<!DOCTYPE>\n"
+char *textDirHeader1 = "<!DOCTYPE>\n"
 "<html>\n"
 " <head>\n"
 "   <title>\n";
 
-const char *textDirHeader2 = "    </title>\n"
+char *textDirHeader2 = "    </title>\n"
 " </head>\n"
 " <body>\n"
 "   <h2> Directory Listing </h2>\n";
 
-const char *textDirMid1 = "<a href=\"";
+char *textDirMid1 = "<a href=\"";
 
-const char *textDirMid2 = "\">";
+char *textDirMid2 = "\">";
 
-const char *textDirMid3 = "</a>\n";
+char *textDirMid3 = "</a><br>\n";
 
-const char *textDirFooter = " </body>\n"
+char *textDirFooter = " </body>\n"
 "</html>";

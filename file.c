@@ -27,16 +27,34 @@
 
 // sever name
 #define SERVER_NAME "testHttpd0.0"
+      
+
+struct httpReplyDir {
+  DIR *dir;
+};
+
+struct httpReplyFile {
+  bool chunked;
+  size_t contentSize;
+};
+
+union httpReplyU {
+  struct httpReplyDir d;
+  struct httpReplyFile f;
+};
 
 struct httpReply {
   int statusCode;
   char *statusText;
   size_t statusTextLen;
+  //FILE
   char * contentType;
   size_t contentTypeLen;
+  bool chunked;
   size_t contentSize;
-  //for chunked tranpher of data
-  bool chukedEncoding;
+  //DIR
+  DIR *dir;
+  char *path;
 };
 
 //Return Headers
@@ -79,8 +97,7 @@ void intHttpReply(struct httpReply *httpStatus){
   httpStatus->statusTextLen = 0;
   httpStatus->contentType = NULL;
   httpStatus->contentTypeLen = 0;
-  httpStatus->contentSize = 0;
-  httpStatus->chukedEncoding = false;
+  httpStatus->dir = NULL;
 }
 
 void getFileFormat(char *fileName,char *buff){
@@ -219,14 +236,14 @@ void sendHeaders(int sock,struct httpReply httpInfo){
         }
         break;        
       case ContentLength:
-        if(!httpInfo.chukedEncoding){
+        if(!httpInfo.chunked){
           bufferAdd(&i,buff,"Content-Length: ",16);
           snprintf(tempBuff,64,"%lu",httpInfo.contentSize);
           len = strlen(tempBuff);
           bufferAdd(&i,buff,tempBuff,len);
         }// checked Encoding makes me want to shoot myself
         else{
-        bufferAdd(&i,buff,"Transfer-Encoding: chunked",26);
+          bufferAdd(&i,buff,"Transfer-Encoding: chunked",26);
         }
         break;
       default:
@@ -241,23 +258,48 @@ void sendHeaders(int sock,struct httpReply httpInfo){
   write(sock,buff,i);
 }
 
+void writeChunkedData(int sock,char *responceBody,size_t contentSize){
+  int len;
+  char buff[64];
+  snprintf(buff,64,"%lx%n",contentSize,&len); //printf %n go buff
+  write(sock,buff,len);
+  write(sock,"\r\n",2);
+  write(sock,responceBody,contentSize);
+  write(sock,"\r\n",2);
+}
+
 void sendBody(int sock,char responceBody[BUFFER_SIZE],struct httpReply httpInfo,int file){
   /***************
    *
    ***************/
-  char buff[64];
-  int len;
-  if(httpInfo.chukedEncoding){
-    while(true){
-      snprintf(buff,64,"%lx%n",httpInfo.contentSize,&len); //printf %n go buff
-      write(sock,buff,len);
+  if(httpInfo.chunked){
+    if(httpInfo.dir == NULL){
+      //FILE
+      while(true){
+        writeChunkedData(sock,responceBody,httpInfo.contentSize);
+        if(httpInfo.contentSize == 0){break;}
+        httpInfo.contentSize = read(file,responceBody,BUFFER_SIZE);
+      }
+    }else{
+      //DIR
+      writeChunkedData(sock,textDirHeader1,strlen(textDirHeader1));
+      writeChunkedData(sock,httpInfo.path,strlen(httpInfo.path));
+      writeChunkedData(sock,textDirHeader2,strlen(textDirHeader2));
+      struct dirent *dir = NULL;
+      while((dir=readdir(httpInfo.dir))!=NULL){
+        writeChunkedData(sock,textDirMid1,strlen(textDirMid1));
+        writeChunkedData(sock,dir->d_name,strlen(dir->d_name));
+        writeChunkedData(sock,textDirMid2,strlen(textDirMid2));
+        writeChunkedData(sock,dir->d_name,strlen(dir->d_name));
+        writeChunkedData(sock,textDirMid3,strlen(textDirMid3));
+      }
+      writeChunkedData(sock,textDirFooter,strlen(textDirFooter));
+      writeChunkedData(sock,NULL,0);
       write(sock,"\r\n",2);
-      write(sock,responceBody,httpInfo.contentSize);
-      write(sock,"\r\n",2);
-      if(httpInfo.contentSize == 0){break;}
-      httpInfo.contentSize = read(file,responceBody,BUFFER_SIZE);
+    
     }
   }else{
+    //SMOL FILE
     write(sock,responceBody,httpInfo.contentSize);
   }
 }
@@ -304,24 +346,31 @@ void respondFile(char *responseBody,struct httpReply *httpInfo,struct stat fileS
   getFileFormat(path,buff);
   size_t len = strlen(buff);
 
-
   httpInfo->statusCode = 200;
   httpInfo->statusText = "OK";
   httpInfo->statusTextLen=2;
   // chuncked data transpher
   if(fileStat.st_size > BUFFER_SIZE){
-    httpInfo->chukedEncoding = true;
+    httpInfo->chunked= true;
   }
   httpInfo->contentSize=read(file,responseBody,BUFFER_SIZE);
   // contentTypeLen
   httpInfo->contentType = malloc(len*sizeof(char)+1);
-  strcpy(httpInfo->contentType,buff);
   httpInfo->contentTypeLen = len;
+  httpInfo->contentType = strcpy(httpInfo->contentType,buff);
 }
 
-void respondDir(char (*responseBody)[BUFFER_SIZE],struct httpReply *httpInfo,int file){
+void respondDir(char responseBody[BUFFER_SIZE],struct httpReply *httpInfo,char *path,DIR *dir){
   // it should work    
-
+  httpInfo->statusCode = 200;
+  httpInfo->statusText = "OK";
+  httpInfo->statusTextLen =2;
+  httpInfo->chunked = true;
+  bufferAdd(&(httpInfo->contentSize),responseBody,textDirHeader1,strlen(textDirHeader1));
+  httpInfo->dir = dir;
+  httpInfo->path = path;
+  httpInfo->contentType = "text/html";
+  httpInfo->contentTypeLen = 9;
 }
 
 
@@ -350,6 +399,7 @@ void respondToRequest(int sock,const char *path,enum httpRequest request,struct 
   }
     
   int file = getFile(realPath,&statOut);
+  DIR *dir = NULL;
 
   struct httpReply httpInfo;
   intHttpReply(&httpInfo);
@@ -361,7 +411,8 @@ void respondToRequest(int sock,const char *path,enum httpRequest request,struct 
   }else{
     if(file == -2){
       debug("DIR");
-      respondDir(&responseBody,&httpInfo,file);
+      dir = opendir(realPath);
+      respondDir(responseBody,&httpInfo,path,dir);
     }else{
       debug("FILE");
       respondFile(responseBody,&httpInfo,statOut,requestPath,file);
@@ -371,6 +422,7 @@ void respondToRequest(int sock,const char *path,enum httpRequest request,struct 
   sendResponse(sock,responseBody,realPath,&statOut,httpInfo,table,request,file);
 
   free(realPath);
+  if(dir!=NULL){closedir(dir);}
 }
 
 

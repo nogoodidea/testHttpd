@@ -1,6 +1,7 @@
 CC := gcc
 LD := ld
-CC_FLAGS := -Wall -lm -pthread  -fsanitize=address -g
+##CC_FLAGS := -Wall -lm -pthread  -fsanitize=address -g
+CC_FLAGS := -Wall -lm
 
 
 HTTP_LD_FLAGS := -r -b binary 

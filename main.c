@@ -196,12 +196,11 @@ int main(int argc,char **argv){
   const char *pathConst = path;
 
   //PORT
-  port = (argc > 1)? htonl(atoi(argv[1])):8000;
+  port = (argc > 1)? (atoi(argv[1])):8000;
   
-  printf("port: %i",port);
+  debugInt(port);
 
-  //CHROOT
-  debug(path);
+  //chdir
   if(chdir(path) == -1){
     error("chaninging directery failed");
   }

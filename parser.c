@@ -81,9 +81,7 @@ char *rectrictPath(char *path){
     if(i >= BUFFER_SIZE){
       error("buffer overflow in rectrictPath");
     }
-    //TODO do ../ backtracking prevention
     if(0==strncmp(&(path[i]),"../",3)){
-      debug("BACKTRACK DETECTED");
       i+=2;
       continue;
     }
@@ -95,7 +93,6 @@ char *rectrictPath(char *path){
   char *out = malloc(sizeof(char)*(o+1));
   memcpy(out,pathBuff,o+1);
   out[o] = '\0';
-  debug(out);
 
   return out;
 }
@@ -261,6 +258,7 @@ int parseHeaders(char buff[BUFFER_SIZE],ssize_t buffSize,struct hashTable *table
         if((status&FIRSTLINE)==FIRSTLINE){
           status &= ~(FIRSTLINE);
           hashTableAdd(table,"PATH",key);
+          free(key);
         }else{
           hashTableAdd(table,key,value);
           free(value);
