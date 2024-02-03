@@ -9,14 +9,23 @@ const char *textHtml404 = "<!DOCTYPE>\n"
 "  </body>\n"
 "</html>";
 
-const char *textHtmlError = "<!DOCTYPE>\n"
+//// text dir
+
+const char *textDirHeader1 = "<!DOCTYPE>\n"
 "<html>\n"
-"  <head>\n"
-"    <meta charset=\"UTF-8\">\n"
-"    <title>!EN</title>\n"
-"  </head>\n"
-"  <body>\n"
-"    <h1>ERROR: !EN</h1>\n"
-"    <a href=\"https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/!EN\">Mozilla Web Docs - !EN</a>\n"
-"  </body>\n"
-"</html>\n";
+" <head>\n"
+"   <title>\n";
+
+const char *textDirHeader2 = "    </title>\n"
+" </head>\n"
+" <body>\n"
+"   <h2> Directory Listing </h2>\n";
+
+const char *textDirMid1 = "<a href=\"";
+
+const char *textDirMid2 = "\">";
+
+const char *textDirMid3 = "</a>\n";
+
+const char *textDirFooter = " </body>\n"
+"</html>";
