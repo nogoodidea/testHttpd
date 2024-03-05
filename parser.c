@@ -11,8 +11,7 @@
 #include "logging.h"
 
 //defines
-
-#define BUFFER_SIZE 512
+#include "parser.h"
 
 #define lineBreak "\n\r"
 
@@ -32,10 +31,6 @@
 #define PERCENT_ZERO 4
 #define PERCENT_ONE 8
 
-
-//datatypes
-enum httpRequest {GET,POST,HEAD,ERROR};
-  
 
 void strToHeap(char *data,char **out,size_t length){
   /*************
@@ -165,7 +160,7 @@ void parseFirstline(char buff[BUFFER_SIZE],size_t buffSize,char **path,enum http
    (*path) = rectrictPath(lineBuff);
 }
 
-int parseHeaders(char buff[BUFFER_SIZE],ssize_t buffSize,struct hashTable *table,enum httpRequest *request){
+int parseHeaders(char buff[BUFFER_SIZE],size_t buffSize,struct hashTable *table,enum httpRequest *request){
   /*******************
    * int parseHeaders()
    *    buff[BUFFER_SIZE] - char array with http text
@@ -203,7 +198,7 @@ int parseHeaders(char buff[BUFFER_SIZE],ssize_t buffSize,struct hashTable *table
    char *key = NULL;
    char *value = NULL;
 
-   static ssize_t i = 0;
+   static size_t i = 0;
 
    // set request to error if new
    if((status&FIRSTLINE)==FIRSTLINE){

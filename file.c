@@ -180,7 +180,7 @@ void getFileFormat(char *fileName,char *buff){
 }
 
 bool bufferAdd(size_t *i,char *buff,char *str,size_t len){
-  if(*i+len >= BUFFER_SIZE){error("BUFFER OVERFLOW");return true;}
+  if((*i)+len >= BUFFER_SIZE){error("BUFFER OVERFLOW");return true;}
   memcpy(&(buff[*i]),str,len);
   *i += len;
   return false;
@@ -270,7 +270,7 @@ void writeChunkedData(int sock,char *responceBody,size_t contentSize){
 
 void sendBody(int sock,char responceBody[BUFFER_SIZE],struct httpReply httpInfo,int file){
   /***************
-   *
+   *does the reply 
    ***************/
   if(httpInfo.chunked){
     if(httpInfo.dir == NULL){
@@ -366,7 +366,6 @@ void respondDir(char responseBody[BUFFER_SIZE],struct httpReply *httpInfo,char *
   httpInfo->statusText = "OK";
   httpInfo->statusTextLen =2;
   httpInfo->chunked = true;
-  bufferAdd(&(httpInfo->contentSize),responseBody,textDirHeader1,strlen(textDirHeader1));
   httpInfo->dir = dir;
   httpInfo->path = path;
   httpInfo->contentType = "text/html";
@@ -418,6 +417,7 @@ void respondToRequest(int sock,const char *path,enum httpRequest request,struct 
       respondFile(responseBody,&httpInfo,statOut,requestPath,file);
     }
   }
+  debug("SENDING REPLY");
   
   sendResponse(sock,responseBody,realPath,&statOut,httpInfo,table,request,file);
 
