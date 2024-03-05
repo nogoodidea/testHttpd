@@ -6,7 +6,7 @@
 
 enum httpRequest {GET,POST,HEAD,ERROR};
 
-#define BUFFER_SIZE 256
+#define BUFFER_SIZE 512
 
 void strToHeap(char *data,char **out,size_t length);
 
