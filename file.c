@@ -106,7 +106,7 @@ void getFileFormat(char *fileName,char *buff){
    * char *fileName - the path of the file
    * 
    * returns the proper file MIME (IANA media types)
-   * if we don't know what sourt of file it is it uses 
+   * if we don't know what sort of file it is it uses 
    *  basicly just going through this list here and useing the most common filename
    *  extend as needed
    *  https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types
@@ -121,6 +121,11 @@ void getFileFormat(char *fileName,char *buff){
       dot=i;
     }
     i+=1;
+  }
+
+  if(i==0){// shit fuck it's not set. burn it all
+    strcpy(buff,"application/octet-stream");
+    return;
   }
 
   // now we got the end, do something with it
@@ -175,7 +180,8 @@ void getFileFormat(char *fileName,char *buff){
     return;
   }
 
-  // we got to the end say fuck it
+  // we got to the end
+  // fuck it
   strcpy(buff,"application/octet-stream");
 }
 
@@ -188,12 +194,9 @@ bool bufferAdd(size_t *i,char *buff,char *str,size_t len){
 
 void sendHeaders(int sock,struct httpReply httpInfo){
   /********************
-   *
-   *
    * Generates headers for transmission
-   *
-   *
-   *
+   *    int sock - socket to check
+   *    struct httpReply httpInfo - struct of all headers the browser did
    ********************/
   size_t i = 0;
   size_t headerCount = 0;
@@ -259,6 +262,13 @@ void sendHeaders(int sock,struct httpReply httpInfo){
 }
 
 void writeChunkedData(int sock,char *responceBody,size_t contentSize){
+  /**************
+   * void writeChunkedData(int sock,char *responceBody,size_t contentSize)
+   *  writes chunked data from the char buffer responceBody to the socket
+   *    int sock - the socket to reply too
+   *    char *responceBody - the buffer to copy from
+   *    size_t contentSize - the amount of chars to write to the socket
+   **************/
   int len;
   char buff[64];
   snprintf(buff,64,"%lx%n",contentSize,&len); //printf %n go buff
@@ -270,7 +280,8 @@ void writeChunkedData(int sock,char *responceBody,size_t contentSize){
 
 void sendBody(int sock,char responceBody[BUFFER_SIZE],struct httpReply httpInfo,int file){
   /***************
-   *does the reply 
+   *void sendBody(int sock,char responceBody[BUFFER_SIZE],struct httpReply httpInfo,int file)
+   *  does the reply 
    ***************/
   if(httpInfo.chunked){
     if(httpInfo.dir == NULL){
@@ -296,12 +307,13 @@ void sendBody(int sock,char responceBody[BUFFER_SIZE],struct httpReply httpInfo,
       writeChunkedData(sock,textDirFooter,strlen(textDirFooter));
       writeChunkedData(sock,NULL,0);
       write(sock,"\r\n",2);
-    
     }
   }else{
     //SMOL FILE
     write(sock,responceBody,httpInfo.contentSize);
   }
+  // file write done now sync it
+  fsync(sock);
 }
 
 void sendResponse(int sock,char responseBody[BUFFER_SIZE],char *path,struct stat *statOut,struct httpReply httpInfo,struct hashTable *table,enum httpRequest request,int file){
@@ -330,6 +342,11 @@ void sendResponse(int sock,char responseBody[BUFFER_SIZE],char *path,struct stat
 }
 
 void respondFileNotFound(char *responseBody,struct httpReply *httpInfo){
+    /*************
+     *void respondFileNotFound(char *responseBody,struct httpReply *httpInfo)
+     * can't find the file no problem good sir
+     * 
+     *************/
     // add error code to http
     size_t len = strlen(textHtml404);// for null byte
     memcpy( responseBody,textHtml404,len*sizeof(char));
